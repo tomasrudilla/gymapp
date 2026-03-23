@@ -196,7 +196,8 @@ function App() {
 
           <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-500 ${menuOpen ? 'visible opacity-100' : 'invisible opacity-0'}`}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setMenuOpen(false)}></div>
-            <aside className={`absolute top-0 left-0 bottom-0 w-[88%] bg-zinc-950 border-r border-zinc-900 p-8 transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            {/* CORRECCIÓN ACÁ 👇: Agregué overflow-y-auto y pb-10 para que haga scroll en celu */}
+            <aside className={`absolute top-0 left-0 bottom-0 w-[88%] bg-zinc-950 border-r border-zinc-900 p-8 overflow-y-auto pb-10 transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
               <div className="flex justify-between items-center mb-10"><h2 className="text-3xl font-black italic uppercase text-white">MENU</h2><button onClick={() => setMenuOpen(false)} className="p-3 bg-zinc-900 rounded-2xl text-zinc-400 font-bold">✕</button></div>
               <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} setIsLoggedIn={setIsLoggedIn} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} />
             </aside>
@@ -217,10 +218,8 @@ function App() {
                 <div className="space-y-16 md:space-y-24">
                   {ejercicios
                     .filter(e => e.dia === diaActivo)
-                    // MAGIA DE ORDENAMIENTO ACÁ 👇
                     .sort((a, b) => {
                       const obtenerOrden = (ej) => {
-                        // Limpiamos el nombre de tildes y lo pasamos a mayúscula para que no falle si lo escribiste distinto
                         const n = ej.nombre.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                         
                         if (ej.dia === "Lunes") {
@@ -239,11 +238,10 @@ function App() {
                           if (n.includes("FRONTAL")) return 5;
                         }
                         
-                        return 99; // Todo lo demás (y el Viernes) va al final de la lista
+                        return 99; 
                       };
                       return obtenerOrden(a) - obtenerOrden(b);
                     })
-                    // --------------------------------
                     .map((ej) => (
                     <section key={ej.id} className="relative group">
                       <div className="flex items-center justify-between mb-8 px-2">
