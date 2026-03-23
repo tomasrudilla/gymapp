@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  background-color: #020617; /* Slate 950 - El fondo oscuro pro */
+}
