@@ -46,6 +46,15 @@ function App() {
   const [semanaActiva, setSemanaActiva] = useState(1);
   const [diaActivo, setDiaActivo] = useState("Lunes");
 
+  // Widget de Bienvenida (Lógica de día real)
+  const widgetEntrenamiento = useMemo(() => {
+    const diaIndex = hoyReal.getDay(); // 0: Dom, 1: Lun...
+    const nombresDias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const hoyNombre = nombresDias[diaIndex];
+    const config = DIAS_CONFIG.find(d => d.nombre === hoyNombre);
+    return config ? `Hoy: ${config.musculos}` : "Hoy: Descanso";
+  }, []);
+
   useEffect(() => {
     if (semanaActiva > configSemanas[mesActivo]) setSemanaActiva(configSemanas[mesActivo]);
   }, [mesActivo, configSemanas]);
@@ -101,7 +110,7 @@ function App() {
     e.preventDefault();
     const { data } = await supabase.from('perfiles').select('*').eq('username', username).eq('password', password).single();
     if (data) { setUserProfile(data); setIsLoggedIn(true); } 
-    else { setErrorModal({ open: true, mensaje: "Acceso incorrecto." }); }
+    else { setErrorModal({ open: true, mensaje: "USUARIO O CLAVE INVÁLIDOS" }); }
   };
 
   const manejarCambio = async (ejId, setIdx, campo, valor) => {
@@ -116,45 +125,22 @@ function App() {
     }, { onConflict: 'perfil_id, ejercicio_id, mes, semana, nro_serie' });
   };
 
-  // --- COMPONENTE: PÁGINA DE PROGRESO (CALENDARIO + MÉTRICAS) ---
   const PaginaCalendario = () => {
     const mesIndex = MESES.indexOf(mesActivo);
-    const anio = 2026;
-    const ultimoDiaMes = new Date(anio, mesIndex + 1, 0).getDate();
-    let startDay = new Date(anio, mesIndex, 1).getDay(); 
-    startDay = startDay === 0 ? 6 : startDay - 1;
-
-    const diasCalendario = [];
-    for (let i = 0; i < startDay; i++) diasCalendario.push(null);
-    for (let i = 1; i <= ultimoDiaMes; i++) diasCalendario.push(i);
-
-    // MÉTRICAS
     const statsMes = useMemo(() => {
       const dataMes = totalProgreso.filter(s => s.mes === mesActivo);
       const vol = dataMes.reduce((acc, s) => acc + (Number(s.peso) * Number(s.reps)), 0);
       const totalSets = dataMes.length;
       const sobradoSets = dataMes.filter(s => s.sobrado).length;
       const porcIntensidad = totalSets > 0 ? Math.round((sobradoSets / totalSets) * 100) : 0;
-      
-      // Hall of Fame (Top 3 PRs históricos)
       const prs = {};
       totalProgreso.forEach(s => {
         if (!prs[s.ejercicio_id] || Number(s.peso) > prs[s.ejercicio_id].peso) {
           prs[s.ejercicio_id] = { peso: Number(s.peso), nombre: s.ejercicios?.nombre };
         }
       });
-      const topPRs = Object.values(prs).sort((a, b) => b.peso - a.peso).slice(0, 3);
-
-      return { vol, porcIntensidad, topPRs };
+      return { vol, porcIntensidad, topPRs: Object.values(prs).sort((a, b) => b.peso - a.peso).slice(0, 3) };
     }, [totalProgreso, mesActivo]);
-
-    const abrirDetalleDia = (dia) => {
-      const dataDia = totalProgreso.filter(s => {
-        const f = new Date(s.created_at);
-        return f.getDate() === dia && f.getMonth() === mesIndex;
-      });
-      setResumenDiaModal({ open: true, data: dataDia, fecha: `${dia} de ${mesActivo}` });
-    };
 
     return (
       <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 space-y-12">
@@ -169,20 +155,29 @@ function App() {
             {DIAS_SEMANA_CORTOS.map(d => <div key={d} className="text-center text-[10px] font-black text-zinc-700 uppercase tracking-widest">{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-2 md:gap-4">
-            {diasCalendario.map((dia, idx) => {
-              if (!dia) return <div key={idx}></div>;
-              const esHoy = dia === hoyReal.getDate() && mesIndex === hoyReal.getMonth();
+            {Array.from({ length: 35 }).map((_, idx) => {
+              const startDay = new Date(2026, mesIndex, 1).getDay();
+              const adjustedStart = startDay === 0 ? 6 : startDay - 1;
+              const dia = idx - adjustedStart + 1;
+              if (dia <= 0 || dia > new Date(2026, mesIndex + 1, 0).getDate()) return <div key={idx}></div>;
               const entrenado = totalProgreso.some(s => {
                 const f = new Date(s.created_at);
                 return f.getDate() === dia && f.getMonth() === mesIndex;
               });
+              const esHoy = dia === hoyReal.getDate() && mesIndex === hoyReal.getMonth();
               return (
                 <div key={idx} className="relative aspect-square">
                   <div className={`w-full h-full rounded-2xl md:rounded-3xl flex items-center justify-center text-lg md:text-2xl font-black italic transition-all ${esHoy ? 'bg-white text-black scale-105 shadow-xl' : entrenado ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-700'}`}>
                     {dia}
                   </div>
                   {entrenado && (
-                    <button onClick={() => abrirDetalleDia(dia)} className="absolute -top-1 -right-1 w-6 h-6 md:w-8 md:h-8 bg-black border border-blue-500 rounded-full flex items-center justify-center text-[10px] md:text-xs shadow-lg active:scale-75">👁️</button>
+                    <button onClick={() => {
+                      const dataDia = totalProgreso.filter(s => {
+                        const f = new Date(s.created_at);
+                        return f.getDate() === dia && f.getMonth() === mesIndex;
+                      });
+                      setResumenDiaModal({ open: true, data: dataDia, fecha: `${dia} de ${mesActivo}` });
+                    }} className="absolute -top-1 -right-1 w-6 h-6 md:w-8 md:h-8 bg-black border border-blue-500 rounded-full flex items-center justify-center text-[10px] md:text-xs shadow-lg active:scale-75 transition-transform">👁️</button>
                   )}
                 </div>
               );
@@ -192,17 +187,13 @@ function App() {
 
         {/* TARJETAS DE MÉTRICAS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">
-           {/* VOLUMEN TOTAL */}
            <div className="bg-zinc-900/50 border border-zinc-900 rounded-[2.5rem] p-8">
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 italic">Volumen del Mes</p>
               <div className="flex items-baseline gap-2">
                  <span className="text-6xl font-black italic text-white tracking-tighter">{statsMes.vol.toLocaleString()}</span>
                  <span className="text-xl font-black text-blue-600 italic uppercase tracking-tighter">KG</span>
               </div>
-              <p className="text-[10px] text-zinc-600 mt-4 leading-relaxed font-bold uppercase tracking-tight">Peso total desplazado este mes.</p>
            </div>
-
-           {/* INTENSIDAD */}
            <div className="bg-zinc-900/50 border border-zinc-900 rounded-[2.5rem] p-8">
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 italic">Análisis de Intensidad</p>
               <div className="flex justify-between items-end mb-3">
@@ -212,10 +203,7 @@ function App() {
               <div className="w-full h-3 bg-zinc-950 rounded-full overflow-hidden border border-zinc-800">
                  <div className="h-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-1000" style={{ width: `${statsMes.porcIntensidad}%` }}></div>
               </div>
-              <p className="text-[10px] text-zinc-600 mt-4 leading-relaxed font-bold uppercase tracking-tight">Si el % es alto, es hora de subir los pesos.</p>
            </div>
-
-           {/* PRs - HALL OF FAME */}
            <div className="bg-zinc-900/50 border border-zinc-900 rounded-[2.5rem] p-8 md:col-span-2">
               <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-6 italic">Hall of Fame • Récords Históricos</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -225,7 +213,6 @@ function App() {
                       <span className="text-4xl font-black italic text-white tracking-tighter">{pr.peso} KG</span>
                    </div>
                  ))}
-                 {statsMes.topPRs.length === 0 && <p className="text-zinc-700 italic font-bold">Entrená para registrar tus PRs.</p>}
               </div>
            </div>
         </div>
@@ -234,106 +221,130 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans flex flex-col md:flex-row overflow-x-hidden">
+    <div className="min-h-screen bg-black text-white font-sans flex flex-col md:flex-row overflow-x-hidden selection:bg-blue-600">
       
-      {/* MODAL RESUMEN DÍA (CALENDARIO) */}
-      {resumenDiaModal.open && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setResumenDiaModal({ ...resumenDiaModal, open: false })}></div>
-          <div className="relative w-full max-w-lg bg-zinc-950 border border-zinc-900 rounded-[3.5rem] p-8 md:p-12 shadow-2xl animate-in zoom-in duration-300 max-h-[80vh] overflow-y-auto scrollbar-hide">
-            <h4 className="text-4xl font-black uppercase italic mb-8">{resumenDiaModal.fecha}</h4>
-            <div className="space-y-6">
-              {resumenDiaModal.data.map((s, i) => (
-                <div key={i} className="bg-zinc-900/50 p-6 rounded-3xl border border-zinc-900 flex justify-between items-center relative overflow-hidden">
-                  {s.sobrado && <div className="absolute top-0 left-0 bottom-0 w-1 bg-emerald-500"></div>}
-                  <div>
-                    <p className="text-white font-black uppercase italic text-sm">{s.ejercicios?.nombre}</p>
-                    <p className="text-zinc-500 font-bold text-[10px] mt-1">Serie 0{s.nro_serie} {s.sobrado && "💪"}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-black text-blue-500">{s.peso} KG</p>
-                    <p className="text-xs font-bold text-zinc-400">{s.reps} REPS</p>
+      {/* MODAL ERROR (DARK TECH) */}
+      {errorModal.open && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 backdrop-blur-2xl">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setErrorModal({ ...errorModal, open: false })}></div>
+          <div className="relative w-full max-w-sm bg-zinc-950 border border-red-900/50 rounded-[3rem] p-10 text-center shadow-[0_0_50px_rgba(220,38,38,0.1)] animate-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-red-600/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-600/20 text-red-500 font-black text-4xl italic">!</div>
+            <h4 className="text-2xl font-black uppercase italic mb-2 tracking-tighter">ERROR</h4>
+            <p className="text-zinc-600 font-bold text-[10px] mb-8 tracking-widest uppercase">{errorModal.mensaje}</p>
+            <button onClick={() => setErrorModal({ ...errorModal, open: false })} className="w-full bg-red-600 text-white font-black py-5 rounded-2xl uppercase tracking-tighter active:scale-95 transition-all shadow-lg shadow-red-600/20">Reintentar</button>
+          </div>
+        </div>
+      )}
+
+      {/* LOGIN PREMIUM */}
+      {!isLoggedIn ? (
+        <div className="min-h-screen w-full bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
+          {/* Fondo Radial */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+          
+          <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in duration-1000">
+            <div className="text-center mb-8">
+               <h1 className="text-[120px] font-black italic uppercase leading-none tracking-tighter text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">GYM</h1>
+               <div className="h-2 w-20 bg-blue-600 mx-auto -mt-2 rounded-full shadow-[0_0_20px_rgba(37,99,235,1)]"></div>
+            </div>
+
+            {/* WIDGET DINÁMICO */}
+            <div className="mb-10 bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-3xl p-5 flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center border border-blue-600/30">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path></svg>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] italic">Agenda</p>
+                <p className="text-sm font-black text-white uppercase italic">{widgetEntrenamiento}</p>
+              </div>
+            </div>
+
+            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-[4rem] p-10 md:p-14 shadow-2xl relative overflow-hidden group">
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4 italic">User</label>
+                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Atleta" className="w-full bg-white/5 border border-white/5 rounded-3xl p-6 font-black outline-none focus:border-blue-600 focus:bg-white/10 text-white transition-all placeholder:text-zinc-800 text-lg" />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4 italic">Password</label>
+                  <div className="relative">
+                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-white/5 border border-white/5 rounded-3xl p-6 font-black outline-none focus:border-blue-600 focus:bg-white/10 text-white transition-all placeholder:text-zinc-800 text-lg" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-6 top-6 text-zinc-700 hover:text-white transition-colors">{showPassword ? "✕" : "👁️"}</button>
                   </div>
                 </div>
-              ))}
+
+                <button type="submit" className="w-full bg-white text-black font-black py-6 rounded-3xl uppercase tracking-widest text-sm active:scale-95 hover:bg-blue-600 hover:text-white transition-all mt-6 shadow-xl">
+                  Ingresar
+                </button>
+              </form>
             </div>
-            <button onClick={() => setResumenDiaModal({ ...resumenDiaModal, open: false })} className="w-full bg-white text-black font-black py-6 rounded-3xl uppercase tracking-widest mt-10 shadow-xl">Cerrar</button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL INFO SEMANA ANTERIOR */}
-      {infoModal.open && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setInfoModal({ ...infoModal, open: false })}></div>
-          <div className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-[3.5rem] p-10 shadow-2xl animate-in zoom-in duration-300">
-             <div className="mb-8 border-l-4 border-blue-600 pl-4">
-                <p className="text-blue-500 font-black uppercase text-[10px] tracking-widest mb-1 italic">Semana Anterior ({infoModal.mes} • Sem {infoModal.semana})</p>
-                <h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none">{infoModal.nombre}</h3>
-             </div>
-             <div className="space-y-4">
-                {infoModal.data.length > 0 ? infoModal.data.map((s, i) => (
-                  <div key={i} className="flex items-center justify-between bg-zinc-900 p-6 rounded-3xl border border-zinc-800 relative overflow-hidden group">
-                    {s.sobrado && <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-emerald-500"></div>}
-                    <div className="flex flex-col">
-                      <span className="text-4xl font-black italic text-zinc-800 leading-none mb-1">0{s.nro_serie}</span>
-                      {s.sobrado && <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1">💪 Sobrado</span>}
-                    </div>
-                    <div className="text-right">
-                       <p className="text-3xl font-black text-white leading-none">{s.peso} <span className="text-xs text-blue-500 ml-1">KG</span></p>
-                       <p className="text-sm font-bold text-zinc-600 uppercase mt-2 tracking-widest">{s.reps} Reps</p>
-                    </div>
-                  </div>
-                )) : <div className="py-10 text-center opacity-30 italic font-bold uppercase tracking-widest text-zinc-600">Sin registros previos</div>}
-             </div>
-             <button onClick={() => setInfoModal({ ...infoModal, open: false })} className="w-full bg-blue-600 text-white font-black py-6 rounded-3xl uppercase tracking-widest text-xs mt-10 active:scale-95 transition-all shadow-xl">Entendido</button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL FOTO EJERCICIO */}
-      {fotoModal.open && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/98 backdrop-blur-xl" onClick={() => setFotoModal({ ...fotoModal, open: false })}></div>
-          <div className="relative w-full max-w-lg bg-zinc-900 rounded-[3.5rem] overflow-hidden border border-zinc-800 animate-in zoom-in duration-300">
-            <button onClick={() => setFotoModal({ ...fotoModal, open: false })} className="absolute top-8 right-8 z-10 w-12 h-12 bg-black/50 text-white rounded-full font-bold flex items-center justify-center border border-zinc-700 shadow-xl">✕</button>
-            <img src={fotoModal.url} alt={fotoModal.nombre} className="w-full h-96 object-cover" />
-            <div className="p-10 text-center uppercase font-black italic text-3xl">{fotoModal.nombre}</div>
-          </div>
-        </div>
-      )}
-
-      {/* PANTALLA LOGIN */}
-      {!isLoggedIn ? (
-        <div className="min-h-screen w-full bg-black flex items-center justify-center p-6">
-          <div className="w-full max-w-md bg-zinc-950 border border-zinc-900 rounded-[3.5rem] p-12 shadow-2xl text-center">
-            <h1 className="text-9xl font-black italic uppercase mb-12 tracking-tighter">GYM</h1>
-            <form onSubmit={handleLogin} className="space-y-5 text-left">
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Usuario" className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-3xl p-6 font-black outline-none focus:border-blue-600 text-white" />
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-3xl p-6 font-black outline-none focus:border-blue-600 text-white" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-6 top-7 text-zinc-600">{showPassword ? "👁️" : "👁️‍🗨️"}</button>
-              </div>
-              <button type="submit" className="w-full bg-white text-black font-black py-6 rounded-3xl uppercase tracking-widest active:scale-95 transition-all mt-4">Entrar</button>
-            </form>
           </div>
         </div>
       ) : (
         <>
-          {/* SIDEBAR DESKTOP */}
+          {/* MODALES DASHBOARD */}
+          {fotoModal.open && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/98 backdrop-blur-xl" onClick={() => setFotoModal({ ...fotoModal, open: false })}></div>
+              <div className="relative w-full max-w-lg bg-zinc-900 rounded-[3.5rem] overflow-hidden border border-zinc-800 animate-in zoom-in duration-300">
+                <button onClick={() => setFotoModal({ ...fotoModal, open: false })} className="absolute top-8 right-8 z-10 w-12 h-12 bg-black/50 text-white rounded-full font-bold flex items-center justify-center border border-zinc-700 shadow-xl">✕</button>
+                <img src={fotoModal.url} alt={fotoModal.nombre} className="w-full h-96 object-cover" />
+                <div className="p-10 text-center uppercase font-black italic text-3xl tracking-tighter">{fotoModal.nombre}</div>
+              </div>
+            </div>
+          )}
+
+          {resumenDiaModal.open && (
+            <div className="fixed inset-0 z-[400] flex items-center justify-center p-6">
+              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setResumenDiaModal({ ...resumenDiaModal, open: false })}></div>
+              <div className="relative w-full max-w-lg bg-zinc-950 border border-zinc-900 rounded-[3.5rem] p-8 md:p-12 shadow-2xl animate-in zoom-in duration-300 max-h-[80vh] overflow-y-auto scrollbar-hide">
+                <h4 className="text-4xl font-black uppercase italic mb-8">{resumenDiaModal.fecha}</h4>
+                <div className="space-y-6">
+                  {resumenDiaModal.data.map((s, i) => (
+                    <div key={i} className="bg-zinc-900/50 p-6 rounded-3xl border border-zinc-900 flex justify-between items-center relative overflow-hidden">
+                      {s.sobrado && <div className="absolute top-0 left-0 bottom-0 w-1 bg-emerald-500"></div>}
+                      <div><p className="text-white font-black uppercase italic text-sm">{s.ejercicios?.nombre}</p><p className="text-zinc-500 font-bold text-[10px] mt-1">Serie 0{s.nro_serie} {s.sobrado && "💪"}</p></div>
+                      <div className="text-right"><p className="text-2xl font-black text-blue-500">{s.peso} KG</p><p className="text-xs font-bold text-zinc-400">{s.reps} REPS</p></div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => setResumenDiaModal({ ...resumenDiaModal, open: false })} className="w-full bg-white text-black font-black py-6 rounded-3xl uppercase tracking-widest mt-10 active:scale-95">Cerrar</button>
+              </div>
+            </div>
+          )}
+
+          {infoModal.open && (
+            <div className="fixed inset-0 z-[250] flex items-center justify-center p-6">
+              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setInfoModal({ ...infoModal, open: false })}></div>
+              <div className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-[3.5rem] p-10 shadow-2xl animate-in zoom-in duration-300">
+                 <div className="mb-8 border-l-4 border-blue-600 pl-4"><p className="text-blue-500 font-black uppercase text-[10px] tracking-widest mb-1 italic">Semana Anterior</p><h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none">{infoModal.nombre}</h3></div>
+                 <div className="space-y-4">
+                    {infoModal.data.length > 0 ? infoModal.data.map((s, i) => (
+                      <div key={i} className="flex items-center justify-between bg-zinc-900 p-6 rounded-3xl border border-zinc-800 relative overflow-hidden group">
+                        {s.sobrado && <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-emerald-500"></div>}
+                        <div className="flex flex-col"><span className="text-4xl font-black italic text-zinc-800 leading-none mb-1">0{s.nro_serie}</span>{s.sobrado && <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1">💪 Sobrado</span>}</div>
+                        <div className="text-right"><p className="text-3xl font-black text-white leading-none">{s.peso} <span className="text-xs text-blue-500 ml-1">KG</span></p><p className="text-sm font-bold text-zinc-600 uppercase mt-2 tracking-widest">{s.reps} Reps</p></div>
+                      </div>
+                    )) : <div className="py-10 text-center opacity-30 italic font-bold uppercase tracking-widest text-zinc-600">Sin registros</div>}
+                 </div>
+                 <button onClick={() => setInfoModal({ ...infoModal, open: false })} className="w-full bg-blue-600 text-white font-black py-6 rounded-3xl uppercase tracking-widest text-xs mt-10 active:scale-95 shadow-xl">Entendido</button>
+              </div>
+            </div>
+          )}
+
+          {/* DASHBOARD */}
           <aside className="hidden md:flex w-80 bg-zinc-950 border-r border-zinc-900 h-screen sticky top-0 flex-col p-8 overflow-y-auto scrollbar-hide">
-            <h1 className="text-6xl font-black italic uppercase text-white mb-12 tracking-tighter">GYM</h1>
+            <h1 className="text-6xl font-black italic uppercase text-white mb-12 tracking-tighter leading-none">GYM</h1>
             <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} setIsLoggedIn={setIsLoggedIn} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} />
           </aside>
 
-          {/* HEADER MOBILE */}
           <header className="md:hidden fixed top-0 left-0 right-0 h-24 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-900 z-[60] px-6 flex items-center justify-between">
             <button onClick={() => setMenuOpen(true)} className="p-2 text-white"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
-            <h1 className="text-3xl font-black italic text-white tracking-tighter">GYM</h1>
-            <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center font-black text-2xl text-white uppercase">{username[0]}</div>
+            <h1 className="text-3xl font-black italic text-white uppercase tracking-tighter leading-none">GYM</h1>
+            <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center font-black text-2xl text-white border-2 border-blue-500/50 shadow-lg">{username[0]}</div>
           </header>
 
-          {/* MENU MOBILE */}
           <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-500 ${menuOpen ? 'visible opacity-100' : 'invisible opacity-0'}`}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setMenuOpen(false)}></div>
             <aside className={`absolute top-0 left-0 bottom-0 w-[88%] bg-zinc-950 border-r border-zinc-900 p-8 overflow-y-auto transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -342,14 +353,13 @@ function App() {
             </aside>
           </div>
 
-          {/* CONTENIDO PRINCIPAL */}
           <main className="flex-1 pt-32 md:pt-14 pb-20 px-4 md:px-16 max-w-5xl mx-auto w-full">
             {vistaActiva === 'entrenamiento' ? (
               <>
                 <header className="mb-12 md:mb-20 px-2 animate-in fade-in duration-500">
                   <div className="flex items-center gap-3 mb-4"><span className="text-[11px] font-black text-blue-600 uppercase tracking-widest italic">{mesActivo}</span><div className="w-1.5 h-1.5 rounded-full bg-zinc-800"></div><span className="text-[11px] font-black text-zinc-700 uppercase tracking-widest italic">Semana {semanaActiva}</span></div>
                   <h2 className="text-5xl md:text-9xl font-black italic uppercase border-l-[15px] border-blue-600 pl-8 leading-none text-white tracking-tighter break-words">{diaActivo}</h2>
-                  <p className="text-zinc-600 font-bold mt-6 uppercase text-xs md:text-sm tracking-[0.4em] italic leading-none ml-2">{DIAS_CONFIG.find(d => d.nombre === diaActivo)?.musculos}</p>
+                  <p className="text-zinc-600 font-bold mt-6 uppercase text-xs tracking-[0.4em] italic leading-none ml-2">{DIAS_CONFIG.find(d => d.nombre === diaActivo)?.musculos}</p>
                 </header>
                 <div className="space-y-16 md:space-y-24">
                   {ejercicios.filter(e => e.dia === diaActivo).map((ej) => (
@@ -361,16 +371,16 @@ function App() {
                            <button onClick={() => setFotoModal({ open: true, url: supabase.storage.from('Ejercicios-GymApp').getPublicUrl(ej.foto_url.trim()).data.publicUrl, nombre: ej.nombre })} className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 border border-zinc-800 shadow-xl active:scale-90 transition-all shrink-0">👁️</button>
                         </div>
                       </div>
-                      <div className="bg-zinc-950/50 rounded-[4rem] border border-zinc-900 p-6 md:p-12 shadow-2xl backdrop-blur-sm">
-                        <div className="grid grid-cols-[0.5fr_1.4fr_1.4fr_0.7fr] gap-4 text-[12px] md:text-[14px] font-black text-zinc-500 uppercase tracking-widest text-center mb-10 opacity-100 italic"><span>Series</span><span>KG</span><span>Reps</span><span className="text-emerald-500 tracking-tighter">Sobrado</span></div>
+                      <div className="bg-zinc-950/50 rounded-[4rem] border border-zinc-900 p-6 md:p-12 shadow-2xl backdrop-blur-sm relative overflow-hidden">
+                        <div className="grid grid-cols-[0.5fr_1.4fr_1.4fr_0.7fr] gap-4 text-[12px] md:text-[14px] font-black text-zinc-500 uppercase tracking-widest text-center mb-10 italic"><span>Series</span><span>KG</span><span>Reps</span><span className="text-emerald-500 tracking-tighter">Sobrado</span></div>
                         <div className="space-y-4 md:space-y-10">
                           {[0, 1, 2].map((idx) => {
                             const serie = historial[ej.id]?.[idx] || { peso: "", reps: "", sobrado: false };
                             return (
                               <div key={idx} className="grid grid-cols-[0.5fr_1.4fr_1.4fr_0.7fr] gap-3 md:gap-10 items-center">
                                 <div className="text-3xl md:text-7xl font-black italic text-zinc-900 text-center leading-none tracking-tighter select-none">0{idx + 1}</div>
-                                <input type="number" value={serie.peso} onChange={(e) => manejarCambio(ej.id, idx, 'peso', e.target.value)} placeholder="0" className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl py-10 md:py-16 text-center text-4xl md:text-7xl font-black text-blue-500 outline-none focus:border-blue-600 transition-all w-full leading-none shadow-inner" />
-                                <input type="number" value={serie.reps} onChange={(e) => manejarCambio(ej.id, idx, 'reps', e.target.value)} placeholder="0" className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl py-10 md:py-16 text-center text-4xl md:text-7xl font-black text-white outline-none focus:border-blue-600 transition-all w-full leading-none shadow-inner" />
+                                <input type="number" value={serie.peso} onChange={(e) => manejarCambio(ej.id, idx, 'peso', e.target.value)} placeholder="0" className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl py-10 md:py-16 text-center text-4xl md:text-7xl font-black text-blue-500 outline-none focus:border-blue-600 transition-all w-full shadow-inner" />
+                                <input type="number" value={serie.reps} onChange={(e) => manejarCambio(ej.id, idx, 'reps', e.target.value)} placeholder="0" className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl py-10 md:py-16 text-center text-4xl md:text-7xl font-black text-white outline-none focus:border-blue-600 transition-all w-full shadow-inner" />
                                 <div className="flex justify-center"><button onClick={() => manejarCambio(ej.id, idx, 'sobrado', !serie.sobrado)} className={`w-14 h-14 md:w-28 md:h-28 rounded-[1.5rem] md:rounded-[3rem] flex items-center justify-center border-2 transition-all duration-500 active:scale-90 ${serie.sobrado ? 'bg-emerald-500 border-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'border-zinc-800 text-zinc-900'}`}><span className="text-xl md:text-5xl font-bold leading-none">{serie.sobrado ? '💪' : '✓'}</span></button></div>
                               </div>
                             )
@@ -399,7 +409,7 @@ const NavigationContent = ({ username, mesActivo, setMesActivo, configSemanas, s
     });
   };
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 animate-in slide-in-from-left duration-500">
       <div className="flex items-center gap-5 p-6 bg-zinc-900 rounded-[2.5rem] border border-zinc-800 shadow-xl overflow-visible">
          <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center font-black text-3xl text-white uppercase shrink-0">{username[0]}</div>
          <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest leading-none mb-1.5">Atleta</p><p className="text-xl font-black italic text-white uppercase leading-tight break-words">{username}</p></div>
@@ -411,16 +421,16 @@ const NavigationContent = ({ username, mesActivo, setMesActivo, configSemanas, s
       {vistaActiva === 'entrenamiento' ? (
         <>
           <section className="space-y-4">
-            <select value={mesActivo} onChange={(e) => setMesActivo(e.target.value)} className="w-full bg-zinc-900 p-6 rounded-3xl font-black border border-zinc-800 text-white appearance-none text-center text-xs uppercase tracking-widest shadow-inner shadow-black/50">{MESES.map(m => <option key={m} value={m}>{m}</option>)}</select>
+            <select value={mesActivo} onChange={(e) => setMesActivo(e.target.value)} className="w-full bg-zinc-900 p-6 rounded-3xl font-black border border-zinc-800 text-white appearance-none text-center text-xs uppercase tracking-widest cursor-pointer">{MESES.map(m => <option key={m} value={m}>{m}</option>)}</select>
             <div className="space-y-2">
-              <div className="flex items-center justify-between px-3"><label className="text-[10px] font-black text-zinc-700 uppercase tracking-widest">Semanas</label><div className="flex gap-2"><button onClick={() => ajustarSemanas('menos')} className="w-8 h-8 bg-zinc-900 rounded-lg">-</button><button onClick={() => ajustarSemanas('mas')} className="w-8 h-8 bg-zinc-900 rounded-lg">+</button></div></div>
+              <div className="flex items-center justify-between px-3"><label className="text-[10px] font-black text-zinc-700 uppercase tracking-widest font-black">Semanas</label><div className="flex gap-2"><button onClick={() => ajustarSemanas('menos')} className="w-8 h-8 bg-zinc-900 rounded-lg">-</button><button onClick={() => ajustarSemanas('mas')} className="w-8 h-8 bg-zinc-900 rounded-lg">+</button></div></div>
               <div className="grid grid-cols-4 gap-2">{Array.from({ length: configSemanas[mesActivo] }).map((_, i) => (<button key={i+1} onClick={() => setSemanaActiva(i+1)} className={`py-5 rounded-2xl font-black text-sm transition-all ${semanaActiva === i+1 ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-900 text-zinc-500'}`}>{i+1}</button>))}</div>
             </div>
           </section>
           <section className="space-y-3">{DIAS_CONFIG.map(d => (<button key={d.nombre} onClick={() => { setDiaActivo(d.nombre); setMenuOpen(false); }} className={`w-full text-left p-6 rounded-[2.5rem] font-black transition-all ${diaActivo === d.nombre ? 'bg-blue-600 text-white shadow-xl' : 'bg-zinc-900 text-zinc-600 border border-zinc-900/50'}`}><span className="text-xl italic uppercase block leading-none">{d.nombre}</span><span className={`text-[10px] font-bold uppercase mt-2 block tracking-tighter ${diaActivo === d.nombre ? 'text-white/60' : 'text-zinc-700'}`}>{d.musculos}</span></button>))}</section>
         </>
       ) : (
-        <div className="bg-blue-600/5 p-8 rounded-[2.5rem] border border-blue-600/20 text-center"><p className="text-[11px] font-black text-blue-500 uppercase tracking-widest">Analytics de Rendimiento</p></div>
+        <div className="bg-blue-600/5 p-8 rounded-[2.5rem] border border-blue-600/20 text-center"><p className="text-[11px] font-black text-blue-500 uppercase tracking-widest">Analytics Activos</p></div>
       )}
       <button onClick={() => setIsLoggedIn(false)} className="w-full p-6 bg-zinc-950 text-zinc-700 font-black rounded-[2.5rem] border border-zinc-900 uppercase text-[10px] tracking-widest active:scale-95 transition-all">Salir</button>
     </div>
