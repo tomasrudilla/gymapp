@@ -5,11 +5,13 @@ import UserAdminPanel from './components/UserAdminPanel'
 import ThemeToggle from './components/ThemeToggle'
 import LogoutButton from './components/LogoutButton'
 import { parseDias, fetchEjerciciosRutina, DIAS_DEFAULT, usaRutinaPredefinida, isPersonalizado } from './lib/rutina'
+import { useTheme } from './lib/theme'
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DIAS_SEMANA_CORTOS = ["L", "M", "M", "J", "V", "S", "D"];
 
 function App() {
+  const { loadUserTheme, clearUserTheme } = useTheme();
   // --- ESTADOS DE SESIÓN Y VISTA ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
@@ -128,10 +130,15 @@ function App() {
     setInfoModal({ open: true, data: dataAnterior, nombre: ej.nombre, mes: prevMes, semana: prevSemana });
   };
 
+  useEffect(() => {
+    if (!isLoggedIn) loadUserTheme(username);
+  }, [username, isLoggedIn, loadUserTheme]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     const { data } = await supabase.from('perfiles').select('*').eq('username', username).eq('password', password).single();
     if (data) {
+      loadUserTheme(data.username);
       setUserProfile(data);
       setIsLoggedIn(true);
       setVistaActiva(data.role === 'master' ? 'master' : 'entrenamiento');
@@ -139,6 +146,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    clearUserTheme();
     setIsLoggedIn(false);
     setUserProfile(null);
     setEjercicios([]);
