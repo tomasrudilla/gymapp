@@ -370,14 +370,14 @@ function App() {
           )}
 
           {/* DASHBOARD */}
-          <aside className="hidden md:flex fixed top-0 left-0 z-30 h-[100dvh] w-80 flex-col bg-zinc-950 border-r border-zinc-900">
+          <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-80 flex-col bg-zinc-950 border-r border-zinc-900 min-h-[100dvh] max-h-[100dvh]">
             <div className="shrink-0 p-8 pb-4">
               <h1 className="text-6xl font-black italic uppercase text-white tracking-tighter leading-none">GYM</h1>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-8">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-8">
               <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} dias={diasRutina} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} isMaster={isMaster} />
             </div>
-            <div className="shrink-0 p-8 pt-4 border-t border-zinc-900 bg-zinc-950">
+            <div className="shrink-0 p-8 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))] border-t border-zinc-900 bg-zinc-950">
               <button onClick={handleLogout} className="w-full p-6 bg-zinc-900 text-zinc-500 font-black rounded-[2rem] border border-zinc-800 uppercase text-[10px] tracking-widest active:scale-95 transition-all hover:text-white">Salir</button>
             </div>
           </aside>
@@ -391,12 +391,12 @@ function App() {
 
           <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-500 ${menuOpen ? 'visible opacity-100' : 'invisible opacity-0'}`}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setMenuOpen(false)}></div>
-            <aside className={`absolute top-0 left-0 bottom-0 w-[88%] bg-zinc-950 border-r border-zinc-900 flex flex-col h-full transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <aside className={`absolute inset-y-0 left-0 w-[88%] bg-zinc-950 border-r border-zinc-900 flex flex-col min-h-[100dvh] max-h-[100dvh] transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
               <div className="flex justify-between items-center p-8 pb-4 shrink-0"><h2 className="text-3xl font-black italic uppercase text-white tracking-tighter">MENU</h2><button onClick={() => setMenuOpen(false)} className="p-3 bg-zinc-900 rounded-2xl text-zinc-400 font-bold">✕</button></div>
-              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-8">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-8">
                 <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} dias={diasRutina} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} isMaster={isMaster} />
               </div>
-              <div className="shrink-0 p-8 pt-4 border-t border-zinc-900">
+              <div className="shrink-0 p-8 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))] border-t border-zinc-900 bg-zinc-950">
                 <button onClick={handleLogout} className="w-full p-6 bg-zinc-900 text-zinc-500 font-black rounded-[2rem] border border-zinc-800 uppercase text-[10px] tracking-widest active:scale-95">Salir</button>
               </div>
             </aside>
