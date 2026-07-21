@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import MasterAdminPanel from './components/MasterAdminPanel'
 import UserAdminPanel from './components/UserAdminPanel'
+import ThemeToggle from './components/ThemeToggle'
+import LogoutButton from './components/LogoutButton'
 import { parseDias, fetchEjerciciosRutina, DIAS_DEFAULT, usaRutinaPredefinida, isPersonalizado } from './lib/rutina'
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -275,6 +277,9 @@ function App() {
       {/* LOGIN PREMIUM */}
       {!isLoggedIn ? (
         <div className="min-h-screen w-full bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
+          <div className="absolute top-6 right-6 z-20">
+            <ThemeToggle />
+          </div>
           {/* Fondo Radial */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
           
@@ -371,14 +376,15 @@ function App() {
 
           {/* DASHBOARD */}
           <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-80 flex-col bg-zinc-950 border-r border-zinc-900 min-h-[100dvh] max-h-[100dvh]">
-            <div className="shrink-0 p-8 pb-4">
+            <div className="shrink-0 p-8 pb-4 flex items-start justify-between gap-3">
               <h1 className="text-6xl font-black italic uppercase text-white tracking-tighter leading-none">GYM</h1>
+              <ThemeToggle className="shrink-0 mt-1" />
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-8">
               <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} dias={diasRutina} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} isMaster={isMaster} />
             </div>
             <div className="shrink-0 p-8 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))] border-t border-zinc-900 bg-zinc-950">
-              <button onClick={handleLogout} className="w-full p-6 bg-zinc-900 text-zinc-500 font-black rounded-[2rem] border border-zinc-800 uppercase text-[10px] tracking-widest active:scale-95 transition-all hover:text-white">Salir</button>
+              <LogoutButton onClick={handleLogout} className="LogoutButton-light" />
             </div>
           </aside>
 
@@ -386,18 +392,27 @@ function App() {
           <header className="md:hidden fixed top-0 left-0 right-0 h-24 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-900 z-[60] px-6 flex items-center justify-between">
             <button onClick={() => setMenuOpen(true)} className="p-2 text-white"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
             <h1 className="text-3xl font-black italic text-white uppercase tracking-tighter leading-none">GYM</h1>
-            <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center font-black text-2xl text-white border-2 border-blue-500/50 shadow-lg">{username[0]}</div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle className="w-11 h-11" />
+              <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center font-black text-2xl text-white border-2 border-blue-500/50 shadow-lg">{username[0]}</div>
+            </div>
           </header>
 
           <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-500 ${menuOpen ? 'visible opacity-100' : 'invisible opacity-0'}`}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setMenuOpen(false)}></div>
             <aside className={`absolute inset-y-0 left-0 w-[88%] bg-zinc-950 border-r border-zinc-900 flex flex-col min-h-[100dvh] max-h-[100dvh] transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-              <div className="flex justify-between items-center p-8 pb-4 shrink-0"><h2 className="text-3xl font-black italic uppercase text-white tracking-tighter">MENU</h2><button onClick={() => setMenuOpen(false)} className="p-3 bg-zinc-900 rounded-2xl text-zinc-400 font-bold">✕</button></div>
+              <div className="flex justify-between items-center p-8 pb-4 shrink-0">
+                <h2 className="text-3xl font-black italic uppercase text-white tracking-tighter">MENU</h2>
+                <div className="flex items-center gap-2">
+                  <ThemeToggle className="w-11 h-11" />
+                  <button onClick={() => setMenuOpen(false)} className="p-3 bg-zinc-900 rounded-2xl text-zinc-400 font-bold">✕</button>
+                </div>
+              </div>
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-8">
                 <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} dias={diasRutina} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} isMaster={isMaster} />
               </div>
               <div className="shrink-0 p-8 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))] border-t border-zinc-900 bg-zinc-950">
-                <button onClick={handleLogout} className="w-full p-6 bg-zinc-900 text-zinc-500 font-black rounded-[2rem] border border-zinc-800 uppercase text-[10px] tracking-widest active:scale-95">Salir</button>
+                <LogoutButton onClick={handleLogout} className="LogoutButton-light" />
               </div>
             </aside>
           </div>

@@ -11,4 +11,163 @@ body,
 body {
   margin: 0;
   background-color: #020617;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+html[data-theme="light"] body {
+  background-color: #f1f5f9;
+}
+
+/* --- Modo claro: fondos --- */
+html[data-theme="light"] .bg-black {
+  background-color: #f8fafc !important;
+}
+
+html[data-theme="light"] .bg-zinc-950 {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="light"] .bg-zinc-900 {
+  background-color: #f1f5f9 !important;
+}
+
+html[data-theme="light"] .bg-zinc-900\/50 {
+  background-color: rgb(241 245 249 / 0.85) !important;
+}
+
+html[data-theme="light"] .bg-zinc-950\/50 {
+  background-color: rgb(255 255 255 / 0.9) !important;
+}
+
+html[data-theme="light"] .bg-zinc-950\/40 {
+  background-color: rgb(255 255 255 / 0.92) !important;
+}
+
+html[data-theme="light"] .bg-zinc-950\/80 {
+  background-color: rgb(255 255 255 / 0.92) !important;
+}
+
+html[data-theme="light"] .bg-white\/5 {
+  background-color: rgb(241 245 249 / 0.9) !important;
+}
+
+html[data-theme="light"] .bg-red-950 {
+  background-color: #fef2f2 !important;
+}
+
+/* --- Modo claro: textos --- */
+html[data-theme="light"] .text-white {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .text-zinc-400 {
+  color: #64748b !important;
+}
+
+html[data-theme="light"] .text-zinc-500 {
+  color: #64748b !important;
+}
+
+html[data-theme="light"] .text-zinc-600 {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] .text-zinc-700 {
+  color: #334155 !important;
+}
+
+html[data-theme="light"] .text-zinc-800 {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme="light"] .text-zinc-900 {
+  color: #94a3b8 !important;
+}
+
+/* Mantener texto claro en botones / badges de color */
+html[data-theme="light"] .bg-blue-600.text-white,
+html[data-theme="light"] .bg-red-600.text-white,
+html[data-theme="light"] .bg-emerald-500.text-white,
+html[data-theme="light"] .bg-emerald-500.text-black,
+html[data-theme="light"] .bg-amber-500.text-black,
+html[data-theme="light"] .bg-white.text-black {
+  color: inherit !important;
+}
+
+html[data-theme="light"] .bg-blue-600.text-white,
+html[data-theme="light"] .bg-red-600.text-white {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .bg-amber-500.text-black,
+html[data-theme="light"] .bg-emerald-500.text-black,
+html[data-theme="light"] .bg-white.text-black {
+  color: #000000 !important;
+}
+
+html[data-theme="light"] .hover\:text-white:hover {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .bg-blue-600.hover\:text-white:hover,
+html[data-theme="light"] .bg-red-600.hover\:text-white:hover {
+  color: #ffffff !important;
+}
+
+/* --- Modo claro: bordes --- */
+html[data-theme="light"] .border-zinc-900 {
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .border-zinc-800 {
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .border-zinc-700 {
+  border-color: #cbd5e1 !important;
+}
+
+html[data-theme="light"] .border-white\/5 {
+  border-color: rgb(226 232 240 / 0.9) !important;
+}
+
+html[data-theme="light"] .border-zinc-900\/50 {
+  border-color: #e2e8f0 !important;
+}
+
+/* --- Modo claro: inputs login --- */
+html[data-theme="light"] input.bg-white\/5 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] input.placeholder\:text-zinc-800::placeholder {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="light"] select.bg-zinc-900 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] input.bg-zinc-900 {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="light"] .shadow-black\/50 {
+  --tw-shadow-color: rgb(148 163 184 / 0.25) !important;
+}
+
+html[data-theme="light"] .ThemeToggle-light-shell {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .LogoutButton-light {
+  background-color: #ffffff !important;
+  border-color: #fecaca !important;
+}
+
+html[data-theme="light"] .LogoutButton-light:hover {
+  background-color: #fef2f2 !important;
 }
