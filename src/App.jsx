@@ -1,14 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from './supabaseClient'
+import MasterAdminPanel from './components/MasterAdminPanel'
+import UserAdminPanel from './components/UserAdminPanel'
+import { parseDias, fetchEjerciciosRutina, DIAS_DEFAULT, usaRutinaPredefinida, isPersonalizado } from './lib/rutina'
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DIAS_SEMANA_CORTOS = ["L", "M", "M", "J", "V", "S", "D"];
-
-const DIAS_CONFIG = [
-  { nombre: "Lunes", musculos: "Espalda y Bíceps" },
-  { nombre: "Miércoles", musculos: "Pecho, Hombro y Tríceps" },
-  { nombre: "Viernes", musculos: "Piernas" }
-];
 
 function App() {
   // --- ESTADOS DE SESIÓN Y VISTA ---
@@ -17,7 +14,9 @@ function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [vistaActiva, setVistaActiva] = useState("entrenamiento"); 
+  const [vistaActiva, setVistaActiva] = useState("entrenamiento");
+
+  const isMaster = userProfile?.role === 'master';
 
   // --- ESTADOS DE DATOS ---
   const [ejercicios, setEjercicios] = useState([]);
@@ -47,41 +46,62 @@ function App() {
   const [diaActivo, setDiaActivo] = useState("Lunes");
 
   // Widget de Bienvenida (Lógica de día real)
+  const diasRutina = useMemo(() => parseDias(userProfile, ejercicios), [userProfile, ejercicios]);
+
   const widgetEntrenamiento = useMemo(() => {
-    const diaIndex = hoyReal.getDay(); // 0: Dom, 1: Lun...
+    const diaIndex = hoyReal.getDay();
     const nombresDias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
     const hoyNombre = nombresDias[diaIndex];
-    const config = DIAS_CONFIG.find(d => d.nombre === hoyNombre);
-    return config ? `Hoy: ${config.musculos}` : "Hoy: Descanso";
-  }, []);
+    const dias = userProfile ? diasRutina : DIAS_DEFAULT;
+    const config = dias.find(d => d.nombre === hoyNombre);
+    return config ? `Hoy: ${config.musculos || config.nombre}` : "Hoy: Descanso";
+  }, [userProfile, diasRutina]);
 
   useEffect(() => {
     if (semanaActiva > configSemanas[mesActivo]) setSemanaActiva(configSemanas[mesActivo]);
   }, [mesActivo, configSemanas]);
 
-  // 1. CARGAR DATOS
+  const cargarEjercicios = useCallback(async () => {
+    if (!userProfile) { setEjercicios([]); return; }
+    const data = await fetchEjerciciosRutina(userProfile.id, isPersonalizado(userProfile));
+    setEjercicios(data);
+  }, [userProfile]);
+
+  const ejerciciosVisibles = ejercicios;
+
   useEffect(() => {
-    const fetchEjercicios = async () => {
-      const { data } = await supabase.from('ejercicios').select('*');
-      setEjercicios(data || []);
-    };
-    fetchEjercicios();
-  }, []);
+    if (!userProfile) return;
+    setDiaActivo((actual) => (diasRutina.some((d) => d.nombre === actual) ? actual : diasRutina[0]?.nombre || 'Lunes'));
+  }, [userProfile, diasRutina]);
+
+  const getNumSeries = (ejId) => {
+    const ej = ejerciciosVisibles.find((e) => e.id === ejId);
+    return ej?.num_series || 3;
+  };
+
+  useEffect(() => {
+    if (userProfile) cargarEjercicios();
+  }, [userProfile, cargarEjercicios]);
+
+  const handleProfileUpdate = (perfil) => setUserProfile(perfil);
 
   useEffect(() => {
     if (userProfile) {
       fetchSeries();
       fetchTodosLosDatos();
     }
-  }, [userProfile, mesActivo, semanaActiva, diaActivo]);
+  }, [userProfile, mesActivo, semanaActiva, diaActivo, ejerciciosVisibles]);
 
   const fetchSeries = async () => {
     const { data } = await supabase.from('series').select('*')
       .eq('perfil_id', userProfile.id).eq('mes', mesActivo).eq('semana', semanaActiva);
     const mapeo = {};
     data?.forEach(s => {
-      if (!mapeo[s.ejercicio_id]) mapeo[s.ejercicio_id] = Array(3).fill(null).map(() => ({ peso: "", reps: "", sobrado: false }));
-      mapeo[s.ejercicio_id][s.nro_serie - 1] = { peso: s.peso, reps: s.reps, sobrado: s.sobrado };
+      const count = getNumSeries(s.ejercicio_id);
+      if (!mapeo[s.ejercicio_id]) mapeo[s.ejercicio_id] = Array(count).fill(null).map(() => ({ peso: "", reps: "", sobrado: false }));
+      if (s.nro_serie - 1 < mapeo[s.ejercicio_id].length) {
+        mapeo[s.ejercicio_id][s.nro_serie - 1] = { peso: s.peso, reps: s.reps, sobrado: s.sobrado };
+      }
     });
     setHistorial(mapeo);
   };
@@ -109,13 +129,29 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     const { data } = await supabase.from('perfiles').select('*').eq('username', username).eq('password', password).single();
-    if (data) { setUserProfile(data); setIsLoggedIn(true); } 
-    else { setErrorModal({ open: true, mensaje: "USUARIO O CLAVE INVÁLIDOS" }); }
+    if (data) {
+      setUserProfile(data);
+      setIsLoggedIn(true);
+      setVistaActiva(data.role === 'master' ? 'master' : 'entrenamiento');
+    } else { setErrorModal({ open: true, mensaje: "USUARIO O CLAVE INVÁLIDOS" }); }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserProfile(null);
+    setEjercicios([]);
+    setVistaActiva('entrenamiento');
+  };
+
+  const getFotoUrl = (ej) => {
+    if (!ej.foto_url?.trim()) return null;
+    return supabase.storage.from('Ejercicios-GymApp').getPublicUrl(ej.foto_url.trim()).data.publicUrl;
   };
 
   const manejarCambio = async (ejId, setIdx, campo, valor) => {
     const copia = { ...historial };
-    if (!copia[ejId]) copia[ejId] = Array(3).fill(null).map(() => ({ peso: "", reps: "", sobrado: false }));
+    const count = getNumSeries(ejId);
+    if (!copia[ejId]) copia[ejId] = Array(count).fill(null).map(() => ({ peso: "", reps: "", sobrado: false }));
     copia[ejId][setIdx] = { ...copia[ejId][setIdx], [campo]: valor };
     setHistorial(copia);
     const s = copia[ejId][setIdx];
@@ -221,7 +257,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans flex flex-col md:flex-row overflow-x-hidden selection:bg-blue-600">
+    <div className="min-h-screen min-h-[100dvh] bg-black text-white font-sans flex flex-col md:flex-row overflow-x-hidden selection:bg-blue-600">
       
       {/* MODAL ERROR (DARK TECH) */}
       {errorModal.open && (
@@ -334,11 +370,19 @@ function App() {
           )}
 
           {/* DASHBOARD */}
-          <aside className="hidden md:flex w-80 bg-zinc-950 border-r border-zinc-900 h-screen sticky top-0 flex-col p-8 overflow-y-auto scrollbar-hide">
-            <h1 className="text-6xl font-black italic uppercase text-white mb-12 tracking-tighter leading-none">GYM</h1>
-            <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} setIsLoggedIn={setIsLoggedIn} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} />
+          <aside className="hidden md:flex fixed top-0 left-0 z-30 h-[100dvh] w-80 flex-col bg-zinc-950 border-r border-zinc-900">
+            <div className="shrink-0 p-8 pb-4">
+              <h1 className="text-6xl font-black italic uppercase text-white tracking-tighter leading-none">GYM</h1>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-8">
+              <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} dias={diasRutina} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} isMaster={isMaster} />
+            </div>
+            <div className="shrink-0 p-8 pt-4 border-t border-zinc-900 bg-zinc-950">
+              <button onClick={handleLogout} className="w-full p-6 bg-zinc-900 text-zinc-500 font-black rounded-[2rem] border border-zinc-800 uppercase text-[10px] tracking-widest active:scale-95 transition-all hover:text-white">Salir</button>
+            </div>
           </aside>
 
+          <div className="flex-1 w-full md:pl-80 min-h-[100dvh] flex flex-col">
           <header className="md:hidden fixed top-0 left-0 right-0 h-24 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-900 z-[60] px-6 flex items-center justify-between">
             <button onClick={() => setMenuOpen(true)} className="p-2 text-white"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
             <h1 className="text-3xl font-black italic text-white uppercase tracking-tighter leading-none">GYM</h1>
@@ -347,34 +391,63 @@ function App() {
 
           <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-500 ${menuOpen ? 'visible opacity-100' : 'invisible opacity-0'}`}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setMenuOpen(false)}></div>
-            <aside className={`absolute top-0 left-0 bottom-0 w-[88%] bg-zinc-950 border-r border-zinc-900 p-8 overflow-y-auto transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-              <div className="flex justify-between items-center mb-10"><h2 className="text-3xl font-black italic uppercase text-white tracking-tighter">MENU</h2><button onClick={() => setMenuOpen(false)} className="p-3 bg-zinc-900 rounded-2xl text-zinc-400 font-bold">✕</button></div>
-              <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} setIsLoggedIn={setIsLoggedIn} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} />
+            <aside className={`absolute top-0 left-0 bottom-0 w-[88%] bg-zinc-950 border-r border-zinc-900 flex flex-col h-full transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+              <div className="flex justify-between items-center p-8 pb-4 shrink-0"><h2 className="text-3xl font-black italic uppercase text-white tracking-tighter">MENU</h2><button onClick={() => setMenuOpen(false)} className="p-3 bg-zinc-900 rounded-2xl text-zinc-400 font-bold">✕</button></div>
+              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-8">
+                <NavigationContent username={username} mesActivo={mesActivo} setMesActivo={setMesActivo} configSemanas={configSemanas} setConfigSemanas={setConfigSemanas} semanaActiva={semanaActiva} setSemanaActiva={setSemanaActiva} diaActivo={diaActivo} setDiaActivo={setDiaActivo} dias={diasRutina} setMenuOpen={setMenuOpen} vistaActiva={vistaActiva} setVistaActiva={setVistaActiva} isMaster={isMaster} />
+              </div>
+              <div className="shrink-0 p-8 pt-4 border-t border-zinc-900">
+                <button onClick={handleLogout} className="w-full p-6 bg-zinc-900 text-zinc-500 font-black rounded-[2rem] border border-zinc-800 uppercase text-[10px] tracking-widest active:scale-95">Salir</button>
+              </div>
             </aside>
           </div>
 
-          <main className="flex-1 pt-32 md:pt-14 pb-20 px-4 md:px-16 max-w-5xl mx-auto w-full">
-            {vistaActiva === 'entrenamiento' ? (
+          <main className={`flex-1 pt-32 md:pt-14 pb-20 px-4 md:px-16 mx-auto w-full ${vistaActiva === 'master' ? 'max-w-6xl' : 'max-w-5xl'}`}>
+            {vistaActiva === 'master' ? (
+              <MasterAdminPanel />
+            ) : vistaActiva === 'admin_rutina' ? (
+              <UserAdminPanel
+                userProfile={userProfile}
+                ejercicios={ejerciciosVisibles}
+                dias={diasRutina}
+                diaActivo={diaActivo}
+                setDiaActivo={setDiaActivo}
+                onRefresh={cargarEjercicios}
+                onProfileUpdate={handleProfileUpdate}
+              />
+            ) : vistaActiva === 'entrenamiento' ? (
               <>
                 <header className="mb-12 md:mb-20 px-2 animate-in fade-in duration-500">
                   <div className="flex items-center gap-3 mb-4"><span className="text-[11px] font-black text-blue-600 uppercase tracking-widest italic">{mesActivo}</span><div className="w-1.5 h-1.5 rounded-full bg-zinc-800"></div><span className="text-[11px] font-black text-zinc-700 uppercase tracking-widest italic">Semana {semanaActiva}</span></div>
                   <h2 className="text-5xl md:text-9xl font-black italic uppercase border-l-[15px] border-blue-600 pl-8 leading-none text-white tracking-tighter break-words">{diaActivo}</h2>
-                  <p className="text-zinc-600 font-bold mt-6 uppercase text-xs tracking-[0.4em] italic leading-none ml-2">{DIAS_CONFIG.find(d => d.nombre === diaActivo)?.musculos}</p>
+                  <p className="text-zinc-600 font-bold mt-6 uppercase text-xs tracking-[0.4em] italic leading-none ml-2">{diasRutina.find(d => d.nombre === diaActivo)?.musculos}</p>
                 </header>
                 <div className="space-y-16 md:space-y-24">
-                  {ejercicios.filter(e => e.dia === diaActivo).map((ej) => (
+                  {ejerciciosVisibles.filter(e => e.dia === diaActivo).length === 0 ? (
+                    <div className="text-center py-20 bg-zinc-950/50 border border-zinc-900 rounded-[3rem] px-8">
+                      <p className="text-zinc-500 font-black uppercase text-xs tracking-widest mb-2">Sin ejercicios para {diaActivo}</p>
+                      {usaRutinaPredefinida(userProfile) ? (
+                        <p className="text-zinc-700 font-bold text-[10px] uppercase tracking-widest mb-6">Rutina predefinida del gym</p>
+                      ) : null}
+                      <button onClick={() => setVistaActiva('admin_rutina')} className="bg-amber-500 text-black font-black px-8 py-5 rounded-2xl uppercase text-xs tracking-widest active:scale-95">
+                        Personalizar rutina
+                      </button>
+                    </div>
+                  ) : ejerciciosVisibles.filter(e => e.dia === diaActivo).map((ej) => (
                     <section key={ej.id} className="relative group">
                       <div className="flex items-center justify-between mb-8 px-2">
                         <h3 className="text-2xl md:text-4xl font-black text-white uppercase italic tracking-tighter leading-tight max-w-[65%] group-hover:text-blue-500 transition-colors">{ej.nombre}</h3>
                         <div className="flex gap-2 shrink-0">
                            <button onClick={() => abrirInfoSemanAnterior(ej)} className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 border border-zinc-800 shadow-xl italic font-black text-xl active:scale-90 transition-all hover:text-emerald-500">i</button>
-                           <button onClick={() => setFotoModal({ open: true, url: supabase.storage.from('Ejercicios-GymApp').getPublicUrl(ej.foto_url.trim()).data.publicUrl, nombre: ej.nombre })} className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 border border-zinc-800 shadow-xl active:scale-90 transition-all shrink-0">👁️</button>
+                           {getFotoUrl(ej) && (
+                           <button onClick={() => setFotoModal({ open: true, url: getFotoUrl(ej), nombre: ej.nombre })} className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 border border-zinc-800 shadow-xl active:scale-90 transition-all shrink-0">👁️</button>
+                           )}
                         </div>
                       </div>
                       <div className="bg-zinc-950/50 rounded-[4rem] border border-zinc-900 p-6 md:p-12 shadow-2xl backdrop-blur-sm relative overflow-hidden">
                         <div className="grid grid-cols-[0.5fr_1.4fr_1.4fr_0.7fr] gap-4 text-[12px] md:text-[14px] font-black text-zinc-500 uppercase tracking-widest text-center mb-10 italic"><span>Series</span><span>KG</span><span>Reps</span><span className="text-emerald-500 tracking-tighter">Sobrado</span></div>
                         <div className="space-y-4 md:space-y-10">
-                          {[0, 1, 2].map((idx) => {
+                          {Array.from({ length: ej.num_series || 3 }).map((_, idx) => {
                             const serie = historial[ej.id]?.[idx] || { peso: "", reps: "", sobrado: false };
                             return (
                               <div key={idx} className="grid grid-cols-[0.5fr_1.4fr_1.4fr_0.7fr] gap-3 md:gap-10 items-center">
@@ -393,13 +466,14 @@ function App() {
               </>
             ) : ( <PaginaCalendario /> )}
           </main>
+          </div>
         </>
       )}
     </div>
   )
 }
 
-const NavigationContent = ({ username, mesActivo, setMesActivo, configSemanas, setConfigSemanas, semanaActiva, setSemanaActiva, diaActivo, setDiaActivo, setIsLoggedIn, setMenuOpen, vistaActiva, setVistaActiva }) => {
+const NavigationContent = ({ username, mesActivo, setMesActivo, configSemanas, setConfigSemanas, semanaActiva, setSemanaActiva, diaActivo, setDiaActivo, dias, setMenuOpen, vistaActiva, setVistaActiva, isMaster }) => {
   const ajustarSemanas = (accion) => {
     setConfigSemanas(prev => {
       const actual = prev[mesActivo];
@@ -409,17 +483,36 @@ const NavigationContent = ({ username, mesActivo, setMesActivo, configSemanas, s
     });
   };
   return (
-    <div className="space-y-10 animate-in slide-in-from-left duration-500">
+    <div className="space-y-10 pb-4 animate-in slide-in-from-left duration-500">
       <div className="flex items-center gap-5 p-6 bg-zinc-900 rounded-[2.5rem] border border-zinc-800 shadow-xl overflow-visible">
          <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center font-black text-3xl text-white uppercase shrink-0">{username[0]}</div>
-         <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest leading-none mb-1.5">Atleta</p><p className="text-xl font-black italic text-white uppercase leading-tight break-words">{username}</p></div>
+         <div className="flex-1 min-w-0"><p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest leading-none mb-1.5">{isMaster ? 'Master' : 'Atleta'}</p><p className="text-xl font-black italic text-white uppercase leading-tight break-words">{username}</p></div>
       </div>
-      <div className="grid grid-cols-2 p-1.5 bg-zinc-950 rounded-3xl border border-zinc-900">
-        <button onClick={() => { setVistaActiva('entrenamiento'); setMenuOpen(false); }} className={`py-4 rounded-2xl font-black text-[10px] uppercase transition-all ${vistaActiva === 'entrenamiento' ? 'bg-zinc-900 text-white shadow-xl shadow-black/50' : 'text-zinc-600'}`}>Rutina</button>
-        <button onClick={() => { setVistaActiva('progreso'); setMenuOpen(false); }} className={`py-4 rounded-2xl font-black text-[10px] uppercase transition-all ${vistaActiva === 'progreso' ? 'bg-zinc-900 text-white shadow-xl shadow-black/50' : 'text-zinc-600'}`}>Progreso</button>
-      </div>
-      {vistaActiva === 'entrenamiento' ? (
+
+      {(isMaster ? vistaActiva !== 'master' : true) && (
+        <button
+          type="button"
+          onClick={() => { setVistaActiva(vistaActiva === 'admin_rutina' ? 'entrenamiento' : 'admin_rutina'); setMenuOpen(false); }}
+          className={`w-full py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest transition-all border-2 ${vistaActiva === 'admin_rutina' ? 'bg-amber-500 border-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-transparent border-amber-500/40 text-amber-500 hover:bg-amber-500/10'}`}
+        >
+          {vistaActiva === 'admin_rutina' ? '← Volver a rutina' : 'Personalizar Rutina'}
+        </button>
+      )}
+
+      {isMaster ? (
+        <div className="grid grid-cols-2 p-1.5 bg-zinc-950 rounded-3xl border border-zinc-900">
+          <button onClick={() => { setVistaActiva('master'); setMenuOpen(false); }} className={`py-4 rounded-2xl font-black text-[10px] uppercase transition-all ${vistaActiva === 'master' ? 'bg-red-600 text-white shadow-xl' : 'text-zinc-600'}`}>Master</button>
+          <button onClick={() => { setVistaActiva('entrenamiento'); setMenuOpen(false); }} className={`py-4 rounded-2xl font-black text-[10px] uppercase transition-all ${vistaActiva === 'entrenamiento' || vistaActiva === 'progreso' || vistaActiva === 'admin_rutina' ? 'bg-zinc-900 text-white shadow-xl shadow-black/50' : 'text-zinc-600'}`}>Mi Cuenta</button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 p-1.5 bg-zinc-950 rounded-3xl border border-zinc-900">
+          <button onClick={() => { setVistaActiva('entrenamiento'); setMenuOpen(false); }} className={`py-4 rounded-2xl font-black text-[10px] uppercase transition-all ${vistaActiva === 'entrenamiento' ? 'bg-zinc-900 text-white shadow-xl shadow-black/50' : 'text-zinc-600'}`}>Rutina</button>
+          <button onClick={() => { setVistaActiva('progreso'); setMenuOpen(false); }} className={`py-4 rounded-2xl font-black text-[10px] uppercase transition-all ${vistaActiva === 'progreso' ? 'bg-zinc-900 text-white shadow-xl shadow-black/50' : 'text-zinc-600'}`}>Progreso</button>
+        </div>
+      )}
+      {(vistaActiva === 'entrenamiento' || vistaActiva === 'admin_rutina') && (
         <>
+          {vistaActiva === 'entrenamiento' && (
           <section className="space-y-4">
             <select value={mesActivo} onChange={(e) => setMesActivo(e.target.value)} className="w-full bg-zinc-900 p-6 rounded-3xl font-black border border-zinc-800 text-white appearance-none text-center text-xs uppercase tracking-widest cursor-pointer">{MESES.map(m => <option key={m} value={m}>{m}</option>)}</select>
             <div className="space-y-2">
@@ -427,12 +520,13 @@ const NavigationContent = ({ username, mesActivo, setMesActivo, configSemanas, s
               <div className="grid grid-cols-4 gap-2">{Array.from({ length: configSemanas[mesActivo] }).map((_, i) => (<button key={i+1} onClick={() => setSemanaActiva(i+1)} className={`py-5 rounded-2xl font-black text-sm transition-all ${semanaActiva === i+1 ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-900 text-zinc-500'}`}>{i+1}</button>))}</div>
             </div>
           </section>
-          <section className="space-y-3">{DIAS_CONFIG.map(d => (<button key={d.nombre} onClick={() => { setDiaActivo(d.nombre); setMenuOpen(false); }} className={`w-full text-left p-6 rounded-[2.5rem] font-black transition-all ${diaActivo === d.nombre ? 'bg-blue-600 text-white shadow-xl' : 'bg-zinc-900 text-zinc-600 border border-zinc-900/50'}`}><span className="text-xl italic uppercase block leading-none">{d.nombre}</span><span className={`text-[10px] font-bold uppercase mt-2 block tracking-tighter ${diaActivo === d.nombre ? 'text-white/60' : 'text-zinc-700'}`}>{d.musculos}</span></button>))}</section>
+          )}
+          <section className="space-y-3">{dias.map(d => (<button key={d.nombre} onClick={() => { setDiaActivo(d.nombre); setMenuOpen(false); }} className={`w-full text-left p-6 rounded-[2.5rem] font-black transition-all ${diaActivo === d.nombre ? (vistaActiva === 'admin_rutina' ? 'bg-amber-500 text-black shadow-xl' : 'bg-blue-600 text-white shadow-xl') : 'bg-zinc-900 text-zinc-600 border border-zinc-900/50'}`}><span className="text-xl italic uppercase block leading-none">{d.nombre}</span><span className={`text-[10px] font-bold uppercase mt-2 block tracking-tighter ${diaActivo === d.nombre ? 'opacity-60' : 'text-zinc-700'}`}>{d.musculos}</span></button>))}</section>
         </>
-      ) : (
+      )}
+      {vistaActiva === 'progreso' && (
         <div className="bg-blue-600/5 p-8 rounded-[2.5rem] border border-blue-600/20 text-center"><p className="text-[11px] font-black text-blue-500 uppercase tracking-widest">Analytics Activos</p></div>
       )}
-      <button onClick={() => setIsLoggedIn(false)} className="w-full p-6 bg-zinc-950 text-zinc-700 font-black rounded-[2.5rem] border border-zinc-900 uppercase text-[10px] tracking-widest active:scale-95 transition-all">Salir</button>
     </div>
   );
 };
