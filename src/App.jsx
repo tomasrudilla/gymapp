@@ -285,7 +285,7 @@ function App() {
       {/* LOGIN PREMIUM */}
       {!isLoggedIn ? (
         <div className="min-h-screen w-full bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
-          <div className="absolute top-6 right-6 z-20">
+          <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] right-6 z-20">
             <ThemeToggle />
           </div>
           {/* Fondo Radial */}
@@ -397,7 +397,7 @@ function App() {
           </aside>
 
           <div className="flex-1 w-full md:pl-80 min-h-[100dvh] flex flex-col">
-          <header className="md:hidden fixed top-0 left-0 right-0 h-24 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-900 z-[60] px-6 flex items-center justify-between">
+          <header className="md:hidden fixed top-0 left-0 right-0 z-[60] bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-900 px-6 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between min-h-[4.5rem]">
             <button onClick={() => setMenuOpen(true)} className="p-2 text-white"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
             <h1 className="text-3xl font-black italic text-white uppercase tracking-tighter leading-none">GYM</h1>
             <div className="flex items-center gap-2">
@@ -409,7 +409,7 @@ function App() {
           <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-500 ${menuOpen ? 'visible opacity-100' : 'invisible opacity-0'}`}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setMenuOpen(false)}></div>
             <aside className={`absolute inset-y-0 left-0 w-[88%] bg-zinc-950 border-r border-zinc-900 flex flex-col min-h-[100dvh] max-h-[100dvh] transition-transform duration-500 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-              <div className="flex justify-between items-center p-8 pb-4 shrink-0">
+              <div className="flex justify-between items-center px-8 pb-4 pt-[max(2rem,env(safe-area-inset-top))] shrink-0">
                 <h2 className="text-3xl font-black italic uppercase text-white tracking-tighter">MENU</h2>
                 <div className="flex items-center gap-2">
                   <ThemeToggle className="w-11 h-11" />
@@ -425,7 +425,7 @@ function App() {
             </aside>
           </div>
 
-          <main className={`flex-1 pt-32 md:pt-14 pb-20 px-4 md:px-16 mx-auto w-full ${vistaActiva === 'master' ? 'max-w-6xl' : 'max-w-5xl'}`}>
+          <main className={`flex-1 pt-[calc(6rem+env(safe-area-inset-top))] md:pt-14 pb-[max(5rem,env(safe-area-inset-bottom))] px-4 md:px-16 mx-auto w-full ${vistaActiva === 'master' ? 'max-w-6xl' : 'max-w-5xl'}`}>
             {vistaActiva === 'master' ? (
               <MasterAdminPanel />
             ) : vistaActiva === 'admin_rutina' ? (
