@@ -6,6 +6,7 @@
 ALTER TABLE perfiles ADD COLUMN IF NOT EXISTS role text DEFAULT 'atleta';
 ALTER TABLE perfiles ADD COLUMN IF NOT EXISTS rutina_personalizada boolean DEFAULT false;
 ALTER TABLE perfiles ADD COLUMN IF NOT EXISTS dias_rutina jsonb;
+ALTER TABLE perfiles ADD COLUMN IF NOT EXISTS ultimo_login timestamptz;
 
 -- 2) EJERCICIOS: columnas nuevas
 ALTER TABLE ejercicios ADD COLUMN IF NOT EXISTS perfil_id uuid REFERENCES perfiles(id) ON DELETE CASCADE;
@@ -19,9 +20,15 @@ SET
   perfil_id = NULL,
   num_series = COALESCE(num_series, 3);
 
--- 4) MASTER ADMIN (cambiá 'TU_USUARIO' por tu username real)
--- UPDATE perfiles SET role = 'master' WHERE username = 'TU_USUARIO';
+-- 4) CREAR USUARIO MASTER
+--    Opción A: convertir un usuario existente (cambiá 'admin' por tu username)
+-- UPDATE perfiles SET role = 'master' WHERE username = 'admin';
 
--- 5) Verificación (opcional — podés correr esto después para chequear)
--- SELECT id, username, role, rutina_personalizada FROM perfiles;
+--    Opción B: crear master nuevo (cambiá usuario y contraseña)
+-- INSERT INTO perfiles (username, password, role)
+-- VALUES ('admin', 'admin123', 'master')
+-- ON CONFLICT DO NOTHING;
+
+-- 5) Verificación (opcional)
+-- SELECT id, username, role, ultimo_login, rutina_personalizada FROM perfiles ORDER BY username;
 -- SELECT id, nombre, dia, num_series, perfil_id FROM ejercicios ORDER BY dia, nombre;
