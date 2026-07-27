@@ -60,7 +60,7 @@ export default function ForgotPasswordModal({ open, onClose, defaultUsername = '
             Olvidé mi contraseña
           </h3>
           <p className="text-zinc-600 font-bold text-[10px] uppercase tracking-widest mt-3">
-            Ingresá tu usuario y elegí una contraseña nueva
+            Ingresá tu usuario y una contraseña nueva (mínimo 4 caracteres). Se actualiza directo en la base de datos, sin email.
           </p>
         </div>
 

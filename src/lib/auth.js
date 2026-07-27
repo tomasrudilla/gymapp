@@ -1,5 +1,33 @@
 import { supabase } from '../supabaseClient'
 
+export const BUCKET_EJERCICIOS = 'Ejercicios-GymApp'
+
+export function getFotoEjercicioUrl(ej) {
+  if (!ej?.foto_url?.trim()) return null
+  return supabase.storage.from(BUCKET_EJERCICIOS).getPublicUrl(ej.foto_url.trim()).data.publicUrl
+}
+
+export async function fetchPerfilesMaster() {
+  const full = await supabase
+    .from('perfiles')
+    .select('id, username, role, created_at, ultimo_login, rutina_personalizada, dias_rutina')
+    .order('username')
+
+  if (!full.error && full.data) return full.data
+
+  const basic = await supabase
+    .from('perfiles')
+    .select('id, username, role, created_at')
+    .order('username')
+
+  return (basic.data || []).map((u) => ({
+    ...u,
+    ultimo_login: null,
+    rutina_personalizada: false,
+    dias_rutina: null,
+  }))
+}
+
 export async function updateUltimoLogin(perfilId) {
   const now = new Date().toISOString()
   const { error } = await supabase.from('perfiles').update({ ultimo_login: now }).eq('id', perfilId)

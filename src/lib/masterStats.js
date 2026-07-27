@@ -29,6 +29,7 @@ export function estadoActividad(ultimoIso) {
 
 export function buildMasterAnalytics(usuarios, allSeries, allEjercicios) {
   const atletas = usuarios.filter((u) => u.role !== 'master')
+  const masters = usuarios.filter((u) => u.role === 'master')
   const porUsuario = {}
   const porMes = {}
   const porDia = {}
@@ -158,6 +159,7 @@ export function buildMasterAnalytics(usuarios, allSeries, allEjercicios) {
 
   return {
     atletas,
+    masters,
     porUsuario,
     porMes,
     volTotal,

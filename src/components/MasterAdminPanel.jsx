@@ -3,7 +3,9 @@ import { supabase } from '../supabaseClient'
 import {
   changePasswordByMaster,
   fetchRutinaUsuario,
+  fetchPerfilesMaster,
   formatFecha,
+  getFotoEjercicioUrl,
   ultimosPesosPorEjercicio,
 } from '../lib/auth'
 import {
@@ -43,10 +45,29 @@ function Badge({ tone, children }) {
 
 function KpiCard({ label, value, sub, accent = 'text-white' }) {
   return (
-    <div className="bg-zinc-950 border border-zinc-900 rounded-[2rem] p-6 md:p-8">
-      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">{label}</p>
-      <p className={`text-4xl md:text-5xl font-black italic ${accent} leading-none`}>{value}</p>
-      {sub && <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-3">{sub}</p>}
+    <div className="bg-zinc-950 border border-zinc-900 rounded-[2rem] p-5 md:p-6 min-w-0 overflow-hidden">
+      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 truncate">{label}</p>
+      <p className={`text-2xl sm:text-3xl md:text-4xl font-black italic ${accent} leading-tight break-all`}>{value}</p>
+      {sub && <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-2 truncate">{sub}</p>}
+    </div>
+  )
+}
+
+function EjercicioCard({ ej, compact = false }) {
+  const foto = getFotoEjercicioUrl(ej)
+  return (
+    <div className={`bg-zinc-900/50 rounded-xl border border-zinc-900 flex gap-3 ${compact ? 'p-2' : 'p-3'}`}>
+      <div className={`${compact ? 'w-12 h-12' : 'w-16 h-16'} rounded-xl overflow-hidden bg-zinc-900 shrink-0 border border-zinc-800 flex items-center justify-center`}>
+        {foto ? (
+          <img src={foto} alt={ej.nombre} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <span className={`${compact ? 'text-base' : 'text-xl'} text-zinc-700`}>🏋️</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`font-black uppercase italic text-white truncate ${compact ? 'text-xs' : 'text-sm'}`}>{ej.nombre}</p>
+        <p className="text-[9px] font-black text-zinc-600 uppercase mt-0.5">{ej.dia} · {ej.num_series || 3} series</p>
+      </div>
     </div>
   )
 }
@@ -226,23 +247,17 @@ function UserDetailPanel({
             Object.entries(rutinaPorDia).map(([dia, ejercicios]) => (
               <div key={dia} className="bg-zinc-950 border border-zinc-900 rounded-[2rem] p-6">
                 <p className="text-lg font-black uppercase italic text-white mb-4">{dia}</p>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {ejercicios.map((e) => {
                     const ultimoPeso = pesosRecientes.find((p) => p.ejercicio_id === e.id)
                     return (
-                      <div key={e.id} className="flex justify-between items-center bg-zinc-900/50 p-4 rounded-xl border border-zinc-900 gap-3">
-                        <div className="min-w-0">
-                          <p className="font-black uppercase italic text-white text-sm">{e.nombre}</p>
-                          <p className="text-[10px] font-black text-zinc-600 uppercase">{e.num_series || 3} series</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          {ultimoPeso ? (
-                            <p className="text-sm font-black text-red-500">{ultimoPeso.peso} KG × {ultimoPeso.reps}</p>
-                          ) : (
-                            <p className="text-[10px] text-zinc-700 font-black uppercase">Sin peso</p>
-                          )}
-                          {e.foto_url && <span className="text-[9px] text-emerald-500 font-black">📷</span>}
-                        </div>
+                      <div key={e.id} className="space-y-2">
+                        <EjercicioCard ej={e} compact />
+                        {ultimoPeso && (
+                          <p className="text-[9px] font-black text-red-500 uppercase text-center">
+                            Último: {ultimoPeso.peso} KG × {ultimoPeso.reps} {ultimoPeso.sobrado && '💪'}
+                          </p>
+                        )}
                       </div>
                     )
                   })}
@@ -334,11 +349,11 @@ export default function MasterAdminPanel() {
   const fetchAll = async () => {
     setLoading(true)
     const [u, s, e] = await Promise.all([
-      supabase.from('perfiles').select('id, username, role, created_at, ultimo_login, rutina_personalizada, dias_rutina').order('username'),
+      fetchPerfilesMaster(),
       supabase.from('series').select('*, ejercicios(nombre, dia), perfiles(username)').order('created_at', { ascending: false }),
       supabase.from('ejercicios').select('*, perfiles(username)').order('dia'),
     ])
-    setUsuarios(u.data || [])
+    setUsuarios(u || [])
     setAllSeries(s.data || [])
     setAllEjercicios(e.data || [])
     setLoading(false)
@@ -394,8 +409,8 @@ export default function MasterAdminPanel() {
       <header>
         <p className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em] italic mb-2">Master Admin</p>
         <h2 className="text-4xl md:text-7xl font-black italic uppercase tracking-tighter text-white leading-none">Control Total</h2>
-        <p className="text-zinc-600 font-bold mt-3 uppercase text-[10px] tracking-[0.25em] italic">
-          Visibilidad completa de todos los atletas · {analytics.atletas.length} usuarios · {analytics.totalSeries} series · {analytics.volTotal.toLocaleString()} KG
+        <p className="text-zinc-600 font-bold mt-3 uppercase text-[10px] tracking-[0.25em] italic break-words">
+          {analytics.atletas.length} atletas · {analytics.masters.length} master · {analytics.totalSeries.toLocaleString()} series · {analytics.volTotal.toLocaleString()} KG
         </p>
       </header>
 
@@ -421,10 +436,10 @@ export default function MasterAdminPanel() {
       {/* RESUMEN */}
       {tab === 'overview' && (
         <div className="space-y-8">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
             <KpiCard label="Atletas" value={analytics.atletas.length} />
-            <KpiCard label="Series" value={analytics.totalSeries} />
-            <KpiCard label="Volumen" value={analytics.volTotal.toLocaleString()} sub="KG totales" accent="text-red-500" />
+            <KpiCard label="Series" value={analytics.totalSeries.toLocaleString()} />
+            <KpiCard label="Volumen" value={`${analytics.volTotal.toLocaleString()}`} sub="KG totales" accent="text-red-500" />
             <KpiCard label="Intensidad" value={`${analytics.intensidad}%`} sub="series sobradas" accent="text-emerald-400" />
             <KpiCard label="Activos 7d" value={analytics.activosSemana} accent="text-blue-400" />
             <KpiCard label="Rutinas propias" value={analytics.atletasPersonalizados} sub={`de ${analytics.atletas.length}`} accent="text-amber-400" />
@@ -571,6 +586,13 @@ export default function MasterAdminPanel() {
                 </button>
               )
             })}
+            {atletasFiltrados.length === 0 && (
+              <p className="text-center py-16 text-zinc-600 font-black uppercase text-xs px-4">
+                {usuarios.length > 0
+                  ? 'No hay atletas listados (solo cuentas master en la base).'
+                  : 'No se pudieron cargar usuarios — corré la migración SQL en Supabase.'}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -632,14 +654,11 @@ export default function MasterAdminPanel() {
             <KpiCard label="Atletas con rutina propia" value={analytics.atletasPersonalizados} accent="text-blue-400" />
           </div>
 
-          <div className="bg-zinc-950 border border-zinc-900 rounded-[2rem] p-6">
+          <div className="bg-zinc-950 border border-zinc-900 rounded-[2rem] p-6 overflow-hidden">
             <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-4">Plantilla del gym (todos la ven hasta personalizar)</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {analytics.predefinidos.map((e) => (
-                <div key={e.id} className="bg-zinc-900/50 p-3 rounded-xl border border-zinc-900">
-                  <p className="font-black uppercase italic text-white text-sm">{e.nombre}</p>
-                  <p className="text-[9px] font-black text-zinc-600 uppercase">{e.dia} · {e.num_series || 3} series</p>
-                </div>
+                <EjercicioCard key={e.id} ej={e} />
               ))}
               {analytics.predefinidos.length === 0 && <p className="text-zinc-600 text-xs font-black uppercase">Sin plantilla cargada</p>}
             </div>
@@ -663,13 +682,7 @@ export default function MasterAdminPanel() {
                 {rutinaExpandida === usuario.id && (
                   <div className="px-5 pb-5 space-y-2 border-t border-zinc-900 pt-4">
                     {ejercicios.map((e) => (
-                      <div key={e.id} className="flex justify-between bg-zinc-900/50 p-3 rounded-xl">
-                        <div>
-                          <p className="font-black uppercase italic text-white text-sm">{e.nombre}</p>
-                          <p className="text-[9px] text-zinc-600 font-black uppercase">{e.dia}</p>
-                        </div>
-                        <span className="text-[9px] font-black text-zinc-500">{e.num_series || 3} ser</span>
-                      </div>
+                      <EjercicioCard key={e.id} ej={e} compact />
                     ))}
                   </div>
                 )}
