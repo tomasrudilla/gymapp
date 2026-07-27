@@ -5,6 +5,9 @@ import UserAdminPanel from './components/UserAdminPanel'
 import ThemeToggle from './components/ThemeToggle'
 import LogoutButton from './components/LogoutButton'
 import ForgotPasswordModal from './components/ForgotPasswordModal'
+import AlertasBanner from './components/AlertasBanner'
+import PushEnableBanner from './components/PushEnableBanner'
+import InstallPwaBanner from './components/InstallPwaBanner'
 import { parseDias, fetchEjerciciosRutina, DIAS_DEFAULT, usaRutinaPredefinida, isPersonalizado } from './lib/rutina'
 import { updateUltimoLogin } from './lib/auth'
 import { useTheme } from './lib/theme'
@@ -493,9 +496,20 @@ function App() {
             </aside>
           </div>
 
-          <main className={`flex-1 pt-[calc(6rem+env(safe-area-inset-top))] md:pt-14 pb-[max(5rem,env(safe-area-inset-bottom))] px-4 md:px-16 mx-auto w-full ${vistaActiva === 'master' ? 'max-w-6xl' : 'max-w-5xl'}`}>
+          <main className={`flex-1 pt-[calc(6rem+env(safe-area-inset-top))] md:pt-14 pb-[max(5rem,env(safe-area-inset-bottom))] mx-auto w-full ${
+            vistaActiva === 'master'
+              ? 'max-w-none px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12'
+              : 'max-w-5xl px-4 md:px-16'
+          }`}>
+            {vistaActiva !== 'master' && userProfile && (
+              <>
+                <InstallPwaBanner />
+                <PushEnableBanner perfilId={userProfile.id} />
+                <AlertasBanner perfilId={userProfile.id} />
+              </>
+            )}
             {vistaActiva === 'master' ? (
-              <MasterAdminPanel />
+              <MasterAdminPanel masterId={userProfile.id} />
             ) : vistaActiva === 'admin_rutina' ? (
               <UserAdminPanel
                 userProfile={userProfile}

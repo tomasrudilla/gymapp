@@ -8,6 +8,7 @@ import {
   getFotoEjercicioUrl,
   ultimosPesosPorEjercicio,
 } from '../lib/auth'
+import { enviarAlerta, fetchAlertasMaster } from '../lib/alertas'
 import {
   MESES,
   buildMasterAnalytics,
@@ -332,7 +333,7 @@ function UserDetailPanel({
   )
 }
 
-export default function MasterAdminPanel() {
+export default function MasterAdminPanel({ masterId }) {
   const [tab, setTab] = useState('overview')
   const [usuarios, setUsuarios] = useState([])
   const [allSeries, setAllSeries] = useState([])
@@ -345,6 +346,12 @@ export default function MasterAdminPanel() {
   const [filtroActividadUser, setFiltroActividadUser] = useState('todos')
   const [filtroActividadDias, setFiltroActividadDias] = useState('30')
   const [rutinaExpandida, setRutinaExpandida] = useState(null)
+  const [alertaTitulo, setAlertaTitulo] = useState('')
+  const [alertaMensaje, setAlertaMensaje] = useState('')
+  const [alertaDestino, setAlertaDestino] = useState('todos')
+  const [alertaMsg, setAlertaMsg] = useState(null)
+  const [historialAlertas, setHistorialAlertas] = useState([])
+  const [enviandoAlerta, setEnviandoAlerta] = useState(false)
 
   const fetchAll = async () => {
     setLoading(true)
@@ -360,6 +367,39 @@ export default function MasterAdminPanel() {
   }
 
   useEffect(() => { fetchAll() }, [])
+
+  useEffect(() => {
+    if (tab === 'alertas') {
+      fetchAlertasMaster().then(setHistorialAlertas)
+    }
+  }, [tab])
+
+  const handleEnviarAlerta = async (e) => {
+    e.preventDefault()
+    setAlertaMsg(null)
+    setEnviandoAlerta(true)
+    const result = await enviarAlerta({
+      titulo: alertaTitulo,
+      mensaje: alertaMensaje,
+      perfilId: alertaDestino === 'todos' ? null : alertaDestino,
+      creadoPor: masterId,
+    })
+    setEnviandoAlerta(false)
+    if (result.ok) {
+      const pushNote = result.pushOk
+        ? ' Push enviado a dispositivos suscriptos.'
+        : result.pushError
+          ? ` (In-app OK; push: ${result.pushError})`
+          : ''
+      setAlertaMsg({ ok: true, text: `Alerta enviada.${pushNote}` })
+      setAlertaTitulo('')
+      setAlertaMensaje('')
+      setAlertaDestino('todos')
+      fetchAlertasMaster().then(setHistorialAlertas)
+    } else {
+      setAlertaMsg({ ok: false, text: result.error })
+    }
+  }
 
   const analytics = useMemo(
     () => buildMasterAnalytics(usuarios, allSeries, allEjercicios),
@@ -405,10 +445,10 @@ export default function MasterAdminPanel() {
   }
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 space-y-8 pb-24">
+    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 space-y-8 pb-24 w-full max-w-none">
       <header>
         <p className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em] italic mb-2">Master Admin</p>
-        <h2 className="text-4xl md:text-7xl font-black italic uppercase tracking-tighter text-white leading-none">Control Total</h2>
+        <h2 className="text-4xl sm:text-5xl md:text-7xl font-black italic uppercase tracking-tighter text-white leading-none">Control Total</h2>
         <p className="text-zinc-600 font-bold mt-3 uppercase text-[10px] tracking-[0.25em] italic break-words">
           {analytics.atletas.length} atletas · {analytics.masters.length} master · {analytics.totalSeries.toLocaleString()} series · {analytics.volTotal.toLocaleString()} KG
         </p>
@@ -719,8 +759,73 @@ export default function MasterAdminPanel() {
 
       {/* ALERTAS */}
       {tab === 'alertas' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-8">
+          <section className="bg-zinc-950 border border-red-500/30 rounded-[2rem] p-5 md:p-8 space-y-5">
+            <div>
+              <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Enviar alerta in-app</p>
+              <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                Banner in-app + push PWA a quien tenga notificaciones activadas.
+              </p>
+            </div>
+            {alertaMsg && (
+              <div className={`p-3 rounded-xl text-[10px] font-black uppercase text-center ${alertaMsg.ok ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                {alertaMsg.text}
+              </div>
+            )}
+            <form onSubmit={handleEnviarAlerta} className="space-y-4">
+              <select
+                value={alertaDestino}
+                onChange={(e) => setAlertaDestino(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 font-black text-white text-sm uppercase"
+              >
+                <option value="todos">Todos los atletas</option>
+                {analytics.atletas.map((u) => (
+                  <option key={u.id} value={u.id}>{u.username}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={alertaTitulo}
+                onChange={(e) => setAlertaTitulo(e.target.value)}
+                placeholder="Título (ej: Recordatorio de piernas)"
+                required
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 font-black text-white outline-none focus:border-red-600"
+              />
+              <textarea
+                value={alertaMensaje}
+                onChange={(e) => setAlertaMensaje(e.target.value)}
+                placeholder="Mensaje para el atleta..."
+                required
+                rows={4}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 font-black text-white outline-none focus:border-red-600 resize-none"
+              />
+              <button
+                type="submit"
+                disabled={enviandoAlerta}
+                className="w-full bg-red-600 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest disabled:opacity-50 active:scale-95"
+              >
+                {enviandoAlerta ? 'Enviando...' : 'Enviar alerta'}
+              </button>
+            </form>
+          </section>
+
+          {historialAlertas.length > 0 && (
+            <section className="space-y-3">
+              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Alertas enviadas</p>
+              {historialAlertas.map((a) => (
+                <div key={a.id} className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4 md:p-5">
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <p className="font-black uppercase italic text-white">{a.titulo}</p>
+                    <Badge tone={a.perfil_id ? 'blue' : 'amber'}>{a.perfil_id ? 'Individual' : 'Todos'}</Badge>
+                  </div>
+                  <p className="text-sm text-zinc-400 font-bold mt-2 line-clamp-2">{a.mensaje}</p>
+                  <p className="text-[9px] font-black text-zinc-600 uppercase mt-2">{formatFecha(a.created_at)}</p>
+                </div>
+              ))}
+            </section>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <KpiCard label="Inactivos +7 días" value={analytics.inactivos.length} accent="text-amber-400" />
             <KpiCard label="Sin ninguna serie" value={analytics.atletas.filter((u) => !(analytics.porUsuario[u.username]?.series)).length} accent="text-red-500" />
           </div>
