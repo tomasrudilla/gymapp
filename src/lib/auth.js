@@ -83,6 +83,39 @@ export async function changePasswordByMaster(perfilId, newPassword) {
   return { ok: true }
 }
 
+export async function crearUsuario({ username, password, role = 'atleta' }) {
+  const user = username?.trim()
+  if (!user) return { ok: false, error: 'Ingresá un nombre de usuario' }
+  if (!password || password.length < 4) {
+    return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
+  }
+
+  const { data: existing } = await supabase
+    .from('perfiles')
+    .select('id')
+    .eq('username', user)
+    .maybeSingle()
+
+  if (existing) return { ok: false, error: 'Ese usuario ya existe' }
+
+  const { data, error } = await supabase
+    .from('perfiles')
+    .insert({
+      username: user,
+      password,
+      role: role === 'master' ? 'master' : 'atleta',
+    })
+    .select('id, username, role, created_at, ultimo_login, rutina_personalizada, dias_rutina')
+    .single()
+
+  if (error) {
+    if (error.code === '23505') return { ok: false, error: 'Ese usuario ya existe' }
+    return { ok: false, error: error.message || 'No se pudo crear el usuario' }
+  }
+
+  return { ok: true, user: data }
+}
+
 export function formatFecha(iso) {
   if (!iso) return 'Sin registro'
   try {

@@ -24,8 +24,6 @@ function App() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
-  const [loginModo, setLoginModo] = useState('usuario');
-  const [isMasterUsername, setIsMasterUsername] = useState(false);
   const [vistaActiva, setVistaActiva] = useState("entrenamiento");
 
   const isMaster = userProfile?.role === 'master';
@@ -142,22 +140,6 @@ function App() {
     if (!isLoggedIn) loadUserTheme(username);
   }, [username, isLoggedIn, loadUserTheme]);
 
-  useEffect(() => {
-    const user = username.trim();
-    if (!user) {
-      setIsMasterUsername(false);
-      setLoginModo('usuario');
-      return;
-    }
-    const timer = setTimeout(async () => {
-      const { data } = await supabase.from('perfiles').select('role').eq('username', user).maybeSingle();
-      const esMaster = data?.role === 'master';
-      setIsMasterUsername(esMaster);
-      if (!esMaster) setLoginModo('usuario');
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [username]);
-
   const handleLogin = async (e) => {
     e.preventDefault();
     const { data } = await supabase.from('perfiles').select('*').eq('username', username).eq('password', password).single();
@@ -166,8 +148,7 @@ function App() {
       loadUserTheme(data.username);
       setUserProfile(data);
       setIsLoggedIn(true);
-      const entrarComoMaster = data.role === 'master' && loginModo === 'master';
-      setVistaActiva(entrarComoMaster ? 'master' : 'entrenamiento');
+      setVistaActiva('entrenamiento');
     } else { setErrorModal({ open: true, mensaje: "USUARIO O CLAVE INVÁLIDOS" }); }
   };
 
@@ -177,8 +158,6 @@ function App() {
     setUserProfile(null);
     setEjercicios([]);
     setVistaActiva('entrenamiento');
-    setLoginModo('usuario');
-    setIsMasterUsername(false);
   };
 
   const getFotoUrl = (ej) => {
@@ -351,38 +330,12 @@ function App() {
                   </div>
                 </div>
 
-                {isMasterUsername && (
-                  <p className="text-center text-[10px] font-black text-red-500 uppercase tracking-widest animate-in fade-in duration-300">
-                    Cuenta Master · Elegí cómo ingresar
-                  </p>
-                )}
-
-                {isMasterUsername ? (
-                  <div className="grid grid-cols-1 gap-3 mt-2">
-                    <button
-                      type="submit"
-                      onClick={() => setLoginModo('master')}
-                      className="w-full bg-red-600 text-white font-black py-6 rounded-3xl uppercase tracking-widest text-sm active:scale-95 hover:bg-red-500 transition-all shadow-xl shadow-red-600/20"
-                    >
-                      Entrar como Master
-                    </button>
-                    <button
-                      type="submit"
-                      onClick={() => setLoginModo('usuario')}
-                      className="w-full bg-white text-black font-black py-6 rounded-3xl uppercase tracking-widest text-sm active:scale-95 hover:bg-blue-600 hover:text-white transition-all shadow-xl"
-                    >
-                      Entrar como Usuario
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="submit"
-                    onClick={() => setLoginModo('usuario')}
-                    className="w-full bg-white text-black font-black py-6 rounded-3xl uppercase tracking-widest text-sm active:scale-95 hover:bg-blue-600 hover:text-white transition-all mt-6 shadow-xl"
-                  >
-                    Ingresar
-                  </button>
-                )}
+                <button
+                  type="submit"
+                  className="w-full bg-white text-black font-black py-6 rounded-3xl uppercase tracking-widest text-sm active:scale-95 hover:bg-blue-600 hover:text-white transition-all mt-6 shadow-xl"
+                >
+                  Ingresar
+                </button>
 
                 <button
                   type="button"

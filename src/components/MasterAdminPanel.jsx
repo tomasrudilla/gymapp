@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../supabaseClient'
 import {
   changePasswordByMaster,
+  crearUsuario,
   fetchRutinaUsuario,
   fetchPerfilesMaster,
   formatFecha,
@@ -352,6 +353,13 @@ export default function MasterAdminPanel({ masterId }) {
   const [alertaMsg, setAlertaMsg] = useState(null)
   const [historialAlertas, setHistorialAlertas] = useState([])
   const [enviandoAlerta, setEnviandoAlerta] = useState(false)
+  const [crearUsuarioOpen, setCrearUsuarioOpen] = useState(false)
+  const [nuevoUsername, setNuevoUsername] = useState('')
+  const [nuevoPassword, setNuevoPassword] = useState('')
+  const [nuevoPasswordConfirm, setNuevoPasswordConfirm] = useState('')
+  const [nuevoRole, setNuevoRole] = useState('atleta')
+  const [crearUsuarioMsg, setCrearUsuarioMsg] = useState(null)
+  const [creandoUsuario, setCreandoUsuario] = useState(false)
 
   const fetchAll = async () => {
     setLoading(true)
@@ -398,6 +406,37 @@ export default function MasterAdminPanel({ masterId }) {
       fetchAlertasMaster().then(setHistorialAlertas)
     } else {
       setAlertaMsg({ ok: false, text: result.error })
+    }
+  }
+
+  const resetCrearUsuarioForm = () => {
+    setNuevoUsername('')
+    setNuevoPassword('')
+    setNuevoPasswordConfirm('')
+    setNuevoRole('atleta')
+    setCrearUsuarioMsg(null)
+  }
+
+  const handleCrearUsuario = async (e) => {
+    e.preventDefault()
+    setCrearUsuarioMsg(null)
+    if (nuevoPassword !== nuevoPasswordConfirm) {
+      setCrearUsuarioMsg({ ok: false, text: 'Las contraseñas no coinciden' })
+      return
+    }
+    setCreandoUsuario(true)
+    const result = await crearUsuario({
+      username: nuevoUsername,
+      password: nuevoPassword,
+      role: nuevoRole,
+    })
+    setCreandoUsuario(false)
+    if (result.ok) {
+      await fetchAll()
+      resetCrearUsuarioForm()
+      setCrearUsuarioOpen(false)
+    } else {
+      setCrearUsuarioMsg({ ok: false, text: result.error })
     }
   }
 
@@ -572,6 +611,18 @@ export default function MasterAdminPanel({ masterId }) {
       {/* USUARIOS */}
       {tab === 'usuarios' && !selectedUser && (
         <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+              {analytics.atletas.length} atletas registrados
+            </p>
+            <button
+              type="button"
+              onClick={() => { resetCrearUsuarioForm(); setCrearUsuarioOpen(true) }}
+              className="bg-red-600 text-white font-black px-5 py-3 rounded-2xl uppercase text-[10px] tracking-widest active:scale-95 shadow-lg shadow-red-600/20"
+            >
+              + Crear usuario
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <SearchInput value={busqueda} onChange={setBusqueda} placeholder="Buscar atleta..." />
             <div className="flex flex-wrap gap-2">
@@ -641,6 +692,80 @@ export default function MasterAdminPanel({ masterId }) {
               </p>
             )}
           </div>
+
+          {crearUsuarioOpen && (
+            <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+                onClick={() => { setCrearUsuarioOpen(false); resetCrearUsuarioForm() }}
+              />
+              <form
+                onSubmit={handleCrearUsuario}
+                className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 space-y-5 animate-in zoom-in duration-200"
+              >
+                <button
+                  type="button"
+                  onClick={() => { setCrearUsuarioOpen(false); resetCrearUsuarioForm() }}
+                  className="absolute top-6 right-6 text-zinc-600 hover:text-white font-bold"
+                >
+                  ✕
+                </button>
+                <div>
+                  <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Nuevo usuario</p>
+                  <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                    El atleta entra con este usuario y contraseña
+                  </p>
+                </div>
+                {crearUsuarioMsg && (
+                  <div className={`p-3 rounded-xl text-[10px] font-black uppercase text-center ${crearUsuarioMsg.ok ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                    {crearUsuarioMsg.text}
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={nuevoUsername}
+                  onChange={(e) => setNuevoUsername(e.target.value)}
+                  placeholder="Usuario (ej: juan)"
+                  required
+                  autoFocus
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 font-black text-white outline-none focus:border-red-600 placeholder:text-zinc-700"
+                />
+                <select
+                  value={nuevoRole}
+                  onChange={(e) => setNuevoRole(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 font-black text-white text-sm uppercase"
+                >
+                  <option value="atleta">Atleta</option>
+                  <option value="master">Master</option>
+                </select>
+                <input
+                  type="password"
+                  value={nuevoPassword}
+                  onChange={(e) => setNuevoPassword(e.target.value)}
+                  placeholder="Contraseña (mín. 4 caracteres)"
+                  minLength={4}
+                  required
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 font-black text-white outline-none focus:border-red-600 placeholder:text-zinc-700"
+                />
+                <input
+                  type="password"
+                  value={nuevoPasswordConfirm}
+                  onChange={(e) => setNuevoPasswordConfirm(e.target.value)}
+                  placeholder="Confirmar contraseña"
+                  minLength={4}
+                  required
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 font-black text-white outline-none focus:border-red-600 placeholder:text-zinc-700"
+                />
+                <button
+                  type="submit"
+                  disabled={creandoUsuario}
+                  className="w-full bg-red-600 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest disabled:opacity-50 active:scale-95"
+                >
+                  {creandoUsuario ? 'Creando...' : 'Crear usuario'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       )}
 
