@@ -501,9 +501,15 @@ function App() {
               ? 'max-w-none px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12'
               : 'max-w-5xl px-4 md:px-16'
           }`}>
-            {vistaActiva !== 'master' && userProfile && (
+            {userProfile && vistaActiva !== 'master' && (
               <>
                 <InstallPwaBanner />
+                <PushEnableBanner perfilId={userProfile.id} />
+                <AlertasBanner perfilId={userProfile.id} />
+              </>
+            )}
+            {vistaActiva === 'master' && userProfile && (
+              <>
                 <PushEnableBanner perfilId={userProfile.id} />
                 <AlertasBanner perfilId={userProfile.id} />
               </>

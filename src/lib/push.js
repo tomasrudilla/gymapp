@@ -62,7 +62,13 @@ export async function suscribirPush(perfilId) {
   )
 
   if (error) {
-    return { ok: false, error: 'No se pudo guardar. ¿Corriste migration_push.sql?' }
+    const hint =
+      error.code === '42501' || error.message?.includes('row-level security')
+        ? 'RLS bloquea el guardado. Corré: ALTER TABLE push_subscriptions DISABLE ROW LEVEL SECURITY;'
+        : error.message?.includes('relation') || error.code === '42P01'
+          ? '¿Corriste migration_push.sql?'
+          : error.message
+    return { ok: false, error: hint }
   }
   return { ok: true }
 }

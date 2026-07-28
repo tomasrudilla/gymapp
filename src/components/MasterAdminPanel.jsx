@@ -406,6 +406,13 @@ export default function MasterAdminPanel({ masterId }) {
     [usuarios, allSeries, allEjercicios]
   )
 
+  const destinatariosAlerta = useMemo(() => {
+    const yo = usuarios.find((u) => u.id === masterId)
+    const atletas = analytics.atletas
+    if (!yo || atletas.some((u) => u.id === yo.id)) return atletas
+    return [{ ...yo, _esYo: true }, ...atletas]
+  }, [analytics.atletas, usuarios, masterId])
+
   const atletasFiltrados = useMemo(() => {
     const filtrados = filtrarAtletas(analytics.atletas, {
       busqueda,
@@ -779,8 +786,10 @@ export default function MasterAdminPanel({ masterId }) {
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 font-black text-white text-sm uppercase"
               >
                 <option value="todos">Todos los atletas</option>
-                {analytics.atletas.map((u) => (
-                  <option key={u.id} value={u.id}>{u.username}</option>
+                {destinatariosAlerta.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.username}{u._esYo ? ' (yo — probar)' : ''}
+                  </option>
                 ))}
               </select>
               <input
