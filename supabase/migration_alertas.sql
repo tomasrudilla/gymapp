@@ -16,3 +16,8 @@ CREATE TABLE IF NOT EXISTS alertas_leidas (
 );
 
 -- perfil_id NULL en alertas = mensaje para todos los atletas
+
+-- Esta app usa la anon key sin Supabase Auth (igual que perfiles/series).
+-- En el popup de Supabase elegí "Run without RLS", o ejecutá esto después:
+ALTER TABLE alertas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE alertas_leidas DISABLE ROW LEVEL SECURITY;

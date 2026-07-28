@@ -13,7 +13,15 @@ export async function enviarAlerta({ titulo, mensaje, perfilId, creadoPor }) {
     creado_por: creadoPor,
   })
 
-  if (error) return { ok: false, error: 'No se pudo enviar. ¿Corriste migration_alertas.sql?' }
+  if (error) {
+    const hint =
+      error.code === '42501' || error.message?.includes('row-level security')
+        ? 'RLS bloquea el envío. Corré: ALTER TABLE alertas DISABLE ROW LEVEL SECURITY;'
+        : error.message?.includes('relation') || error.code === '42P01'
+          ? '¿Corriste migration_alertas.sql?'
+          : error.message
+    return { ok: false, error: hint }
+  }
 
   const push = await invocarPushAlerta({ titulo: t, mensaje: m, perfilId: perfilId || null })
 
