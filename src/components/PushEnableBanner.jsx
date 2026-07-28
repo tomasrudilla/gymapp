@@ -48,18 +48,21 @@ export default function PushEnableBanner({ perfilId }) {
   }
 
   return (
-    <div className="mb-4 bg-red-950/80 border-2 border-red-600 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 shadow-lg shadow-red-600/10">
+    <div
+      role="alert"
+      className="mb-4 sticky top-[calc(5.5rem+env(safe-area-inset-top))] md:top-4 z-[70] bg-red-600 border-2 border-red-400 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 shadow-[0_0_24px_rgba(220,38,38,0.55)] animate-pulse"
+    >
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">
-          ⚠ Activá las notificaciones
+        <p className="text-[11px] font-black text-white uppercase tracking-[0.2em]">
+          ⚠ Atención · Notificaciones push
         </p>
-        <p className="text-[10px] font-bold text-red-200/90 uppercase tracking-widest mt-1">
+        <p className="text-[10px] font-bold text-red-100 uppercase tracking-widest mt-1.5">
           {permisoDenegado
-            ? 'Están bloqueadas — habilitálas en Ajustes del navegador o del celular'
-            : 'Obligatorio para recibir alertas del gym en tu celular'}
+            ? 'Bloqueadas — habilitálas en Ajustes del celular para recibir alertas del master'
+            : 'Obligatorio: activá push para recibir alertas del master en el celular'}
         </p>
         {msg && (
-          <p className="text-[9px] font-black uppercase mt-2 text-red-300">{msg.text}</p>
+          <p className="text-[9px] font-black uppercase mt-2 text-red-100">{msg.text}</p>
         )}
       </div>
       {!permisoDenegado && (
@@ -67,7 +70,7 @@ export default function PushEnableBanner({ perfilId }) {
           type="button"
           onClick={activar}
           disabled={loading}
-          className="shrink-0 px-5 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest active:scale-95 disabled:opacity-50 bg-red-600 text-white hover:bg-red-500"
+          className="shrink-0 px-6 py-3.5 rounded-xl font-black text-[11px] uppercase tracking-widest active:scale-95 disabled:opacity-50 bg-white text-red-600 hover:bg-red-50 shadow-lg"
         >
           {loading ? '...' : 'Activar push'}
         </button>
